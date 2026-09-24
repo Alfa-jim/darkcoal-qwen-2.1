@@ -100,13 +100,18 @@ RUN uv pip install "gguf>=0.13.0" sentencepiece protobuf && \
 # Phr00t Rapid-AIO fixed Qwen node - replaces ComfyUI's broken TextEncodeQwenImageEdit scaling/crop + single-image limit
 # This adds TextEncodeQwenImageEditPlus (up to 4 images, latent-aware sizing). Required for Rapid.
 # Must land AFTER ComfyUI install so it overwrites /comfyui/comfy_extras/nodes_qwen.py last.
-RUN echo "=== patching comfy_extras/nodes_qwen.py -> Phr00t v2 ===" && \
-    cp /comfyui/comfy_extras/nodes_qwen.py /comfyui/comfy_extras/nodes_qwen.py.bak && \
-    curl -L --retry 5 --retry-delay 10 --retry-all-errors -o /comfyui/comfy_extras/nodes_qwen.py \
-      https://huggingface.co/Phr00t/Qwen-Image-Edit-Rapid-AIO/resolve/main/fixed-textencode-node/nodes_qwen.v2.py && \
-    echo "patched nodes_qwen.py:" && ls -lh /comfyui/comfy_extras/nodes_qwen.py /comfyui/comfy_extras/nodes_qwen.py.bak && \
-    grep -q "TextEncodeQwenImageEditPlus" /comfyui/comfy_extras/nodes_qwen.py && echo "Plus node OK" || (echo "FATAL: patched nodes_qwen.py missing TextEncodeQwenImageEditPlus"; exit 1) && \
-    grep -q "TextEncodeQwenImageEdit" /comfyui/comfy_extras/nodes_qwen.py && echo "Base node OK" || (echo "FATAL: patched nodes_qwen.py missing TextEncodeQwenImageEdit"; exit 1)
+# Skip for qwen-2.1 (native Qwen3-VL, different node file - Phr00t is for qwen-image-edit 1.x only)
+RUN if [ -f /comfyui/comfy_extras/nodes_qwen.py ]; then \
+      echo "=== patching comfy_extras/nodes_qwen.py -> Phr00t v2 (qwen-image-edit) ===" && \
+      cp /comfyui/comfy_extras/nodes_qwen.py /comfyui/comfy_extras/nodes_qwen.py.bak && \
+      curl -L --retry 5 --retry-delay 10 --retry-all-errors -o /comfyui/comfy_extras/nodes_qwen.py \
+        https://huggingface.co/Phr00t/Qwen-Image-Edit-Rapid-AIO/resolve/main/fixed-textencode-node/nodes_qwen.v2.py && \
+      echo "patched nodes_qwen.py:" && ls -lh /comfyui/comfy_extras/nodes_qwen.py /comfyui/comfy_extras/nodes_qwen.py.bak && \
+      grep -q "TextEncodeQwenImageEditPlus" /comfyui/comfy_extras/nodes_qwen.py && echo "Plus node OK" || (echo "FATAL: patched nodes_qwen.py missing TextEncodeQwenImageEditPlus"; exit 1) && \
+      grep -q "TextEncodeQwenImageEdit" /comfyui/comfy_extras/nodes_qwen.py && echo "Base node OK" || (echo "FATAL: patched nodes_qwen.py missing TextEncodeQwenImageEdit"; exit 1); \
+    else \
+      echo "SKIP Phr00t patch - /comfyui/comfy_extras/nodes_qwen.py not present (qwen-2.1 uses native nodes, OK)"; ls -l /comfyui/comfy_extras/ | head -20; \
+    fi
 
 # Support for the network volume - copy BEFORE smoke test so the yaml is validated at build time.
 WORKDIR /comfyui
