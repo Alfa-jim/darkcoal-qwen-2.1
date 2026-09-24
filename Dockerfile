@@ -1,4 +1,4 @@
-﻿# Need ubuntu24.04 for python3.12, but no 12.4.1-ubuntu24.04 tag exists -> use 12.6.3-ubuntu24.04 (driver >=560, compatible with 535+ hosts via compat, unlike 12.8 needing 570)
+# Need ubuntu24.04 for python3.12, but no 12.4.1-ubuntu24.04 tag exists -> use 12.6.3-ubuntu24.04 (driver >=560, compatible with 535+ hosts via compat, unlike 12.8 needing 570)
 ARG BASE_IMAGE=nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
 
 # Stage 1: Base image with common dependencies
@@ -85,13 +85,13 @@ RUN if [ "$ENABLE_PYTORCH_UPGRADE" = "true" ]; then \
 # Passing --index-url via comfy install alone doesn't pin torch during the
 # `uv pip install -r requirements.txt` step - ComfyUI's bare `torch` pulls
 # cu13 from PyPI (needs driver >=580) which fails cuda init on 12.6 hosts.
-RUN uv pip install torch==2.11.0 torchvision==0.26.0 torchaudio==2.11.0 \
+RUN uv pip install torch torchvision torchaudio \
       --index-url https://download.pytorch.org/whl/cu126 \
     && uv pip install -r /comfyui/requirements.txt \
     && for r in /comfyui/custom_nodes/*/requirements.txt; do \
          [ -f "$r" ] && uv pip install -r "$r" || true; \
        done \
-    && uv pip install "transformers>=5.17,<6" "huggingface-hub<1.0" "diffusers>=0.37.0" accelerate safetensors
+    && uv pip install --upgrade "transformers>=5.17,<6" "huggingface-hub<1.0" "diffusers>=0.37.0" accelerate safetensors
 
 # ComfyUI-GGUF custom nodes for UnetLoaderGGUF / CLIPLoaderGGUF (qwen-image-edit GGUF)
 # Install order matters: gguf pip pkg first so node import doesn't fail on cold import.
