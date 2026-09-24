@@ -1,4 +1,4 @@
-﻿name: Build and Push to GHCR (qwen-2.1 - network-volume)
+name: Build and Push to GHCR (qwen-2.1 - network-volume)
 
 on:
   push:
@@ -48,7 +48,7 @@ jobs:
           target: final
           build-args: |
             MODEL_TYPE=qwen-2.1
-            COMFYUI_VERSION=0.3.43
+            COMFYUI_VERSION=0.3.48
             CUDA_VERSION_FOR_COMFY=12.6
             USE_NETWORK_VOLUME=true
           tags: |

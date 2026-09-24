@@ -4,7 +4,7 @@
     "workflow": {
       "10": { "inputs": { "vae_name": "qwen_image_2.1_vae.safetensors" }, "class_type": "VAELoader", "_meta": { "title": "Load VAE Qwen 2.1" } },
       "12": { "inputs": { "unet_name": "qwen-image-2.1-uncensored-Q4_K_M.gguf" }, "class_type": "UnetLoaderGGUF", "_meta": { "title": "Load DiT GGUF Qwen2.1" } },
-      "61": { "inputs": { "clip_name": "qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf", "type": "qwen_image", "device": "default" }, "class_type": "CLIPLoaderGGUF", "_meta": { "title": "CLIP Qwen3-VL" } },
+      "61": { "inputs": { "clip_name": "qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf", "type": "stable_diffusion", "device": "default" }, "class_type": "CLIPLoaderGGUF", "_meta": { "title": "CLIP Qwen3-VL (fallback type)" } },
       "41": { "inputs": { "image": "reference.png" }, "class_type": "LoadImage", "_meta": { "title": "LoadImage ref1" } },
       "27": { "inputs": { "width": 2048, "height": 2048, "batch_size": 1 }, "class_type": "EmptySD3LatentImage", "_meta": { "title": "EmptySD3LatentImage sizing" } },
       "66": { "inputs": { "shift": 3.1, "model": ["12", 0] }, "class_type": "ModelSamplingAuraFlow", "_meta": { "title": "ModelSamplingAuraFlow" } },

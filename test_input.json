@@ -7,14 +7,14 @@
         "_meta": { "title": "Load VAE (Qwen 2.1)" }
       },
       "12": {
-        "inputs": { "unet_name": "qwen-image-2.1-uncensored-Q4_K_M.gguf", "type": "qwen2.1" },
+        "inputs": { "unet_name": "qwen-image-2.1-uncensored-Q4_K_M.gguf" },
         "class_type": "UnetLoaderGGUF",
-        "_meta": { "title": "Load Diffusion Transformer GGUF (Qwen 2.1 7B) - or use diffusion_pytorch_model.safetensors via UNETLoader" }
+        "_meta": { "title": "Load Diffusion Transformer GGUF (Qwen 2.1 7B)" }
       },
       "61": {
-        "inputs": { "clip_name": "qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf", "type": "qwen_image", "device": "default" },
+        "inputs": { "clip_name": "qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf", "type": "stable_diffusion", "device": "default" },
         "class_type": "CLIPLoaderGGUF",
-        "_meta": { "title": "Load Qwen3-VL CLIP GGUF (2.1)" }
+        "_meta": { "title": "Load Qwen3-VL CLIP GGUF (2.1) - fallback type for 0.3.43" }
       },
       "66": {
         "inputs": { "shift": 3.1, "model": ["12", 0] },

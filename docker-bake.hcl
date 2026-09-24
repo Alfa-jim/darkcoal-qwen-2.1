@@ -1,4 +1,4 @@
-﻿variable "DOCKERHUB_REPO" {
+variable "DOCKERHUB_REPO" {
   default = "ghcr.io/alfa-jim"
 }
 
@@ -11,7 +11,7 @@ variable "RELEASE_VERSION" {
 }
 
 variable "COMFYUI_VERSION" {
-  default = "0.3.43"
+  default = "0.3.48"
 }
 
 # Global defaults - must match Dockerfile ARG defaults (12.6.3 / cu126, driver >=560)
