@@ -115,7 +115,7 @@ download_one() {
   echo -e "  ${DIM}-> $url${RESET}"
   echo -e "  ${DIM}-> $dest${RESET}"
 
-  if curl -L -C - --retry 5 --retry-delay 5 --retry-all-errors \
+  if curl -L -C - --retry 5 --retry-delay 5 \
           --connect-timeout 30 --progress-bar \
           -o "$dest" "$url"; then
     local sz2
