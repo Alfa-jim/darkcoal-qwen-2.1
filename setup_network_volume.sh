@@ -54,13 +54,27 @@ divider
 echo -e "${DIM}Q4 uncensored ~10GB total (3.8GB DiT + 4GB CLIP + 1.35GB mmproj + 0.8GB VAE)${RESET}"
 echo -e "${DIM}Official safetensors 33GB available as fallback - see notes at end${RESET}"
 
+# -- HF token (for gated GGUFs) -------------------------------------------------
+# arudradey/qwen-image-2.1-uncensored-gguf is gated - requires HF_TOKEN
+# Create at https://huggingface.co/settings/tokens (Read) then:
+#   export HF_TOKEN=hf_xxx   before running this script
+# The script also works with:  HF_TOKEN=hf_xxx ./setup_network_volume.sh
+if [ -n "${HF_TOKEN:-}" ]; then
+  info "Using HF_TOKEN (gated GGUF auth enabled)"
+  AUTH_ARGS=(-H "Authorization: Bearer $HF_TOKEN")
+else
+  warn "HF_TOKEN not set - arudradey GGUFs will fail with 'Invalid username or password'"
+  warn "  Create token: https://huggingface.co/settings/tokens -> export HF_TOKEN=hf_xxx"
+  AUTH_ARGS=()
+fi
+
 # -- Config -------------------------------------------------------------------
-# Primary: community Q4 uncensored (arudradey)
+# Primary: community Q4 uncensored (arudradey) - GATED, needs HF_TOKEN
 # Filenames are the ones test_input.json expects:
 #   text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf
 #   text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf
 #   diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf
-#   vae/qwen_image_2.1_vae.safetensors
+#   vae/qwen_image_2.1_vae.safetensors (public, no token needed)
 VAE_URL="https://huggingface.co/Qwen/Qwen-Image-2.1/resolve/main/vae/diffusion_pytorch_model.safetensors"
 TE_Q4_URL="https://huggingface.co/arudradey/qwen-image-2.1-uncensored-gguf/resolve/main/qwen-image-2.1-text-encoder-Q4_K_M.gguf"
 MMPROJ_URL="https://huggingface.co/arudradey/qwen-image-2.1-uncensored-gguf/resolve/main/qwen-image-2.1-mmproj-f16.gguf"
@@ -117,6 +131,7 @@ download_one() {
 
   if curl -L -C - --retry 5 --retry-delay 5 \
           --connect-timeout 30 --progress-bar \
+          "${AUTH_ARGS[@]}" \
           -o "$dest" "$url"; then
     local sz2
     sz2=$(stat -c%s "$dest" 2>/dev/null || stat -f%z "$dest" 2>/dev/null || echo 0)
@@ -187,6 +202,10 @@ step "4/4 - Summary"
 if [ "$FAIL" -gt 0 ] || [ "$ALL_OK" != "1" ]; then
   err "Some files failed ($FAIL) - re-run ./setup_network_volume.sh to resume (curl -C -)"
   echo -e "\n${YELLOW}Tips:${RESET}"
+  if [ -z "${HF_TOKEN:-}" ]; then
+    echo -e "  * ${RED}GATED REPO:${RESET} arudradey needs HF_TOKEN - create at https://huggingface.co/settings/tokens"
+    echo -e "    ${DIM}export HF_TOKEN=hf_xxx && rm /workspace/models/text_encoders/*.gguf /workspace/models/diffusion_models/qwen-image-2.1-*.gguf && ./setup_network_volume.sh${RESET}"
+  fi
   echo -e "  * Truncated mmproj at 7.7MB = HTML 404 - delete and re-run:"
   echo -e "    ${DIM}rm $TE_DIR/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf && ./setup_network_volume.sh${RESET}"
   echo -e "  * Check volume mount: ${DIM}df -h $VOL_BASE && ls -lh $MODELS_BASE/*/*${RESET}"
