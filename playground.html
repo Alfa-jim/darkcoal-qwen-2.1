@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>darkcoal-qwen-fast — Playground</title>
+<title>darkcoal-qwen-2.1 — Playground</title>
 <style>
 :root{--bg:#0a0a0f;--panel:#14141d;--panel2:#1c1c2a;--border:#2a2a3a;--accent:#8b5cf6;--accent2:#a78bfa;--text:#e8e8f0;--muted:#8888a0;--ok:#22c55e;--err:#ef4444;--warn:#f59e0b}
 *{box-sizing:border-box}body{margin:0;font-family:ui-sans,system-ui,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--text);min-height:100vh}
@@ -58,8 +58,8 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
 </head>
 <body>
 <div class="topbar">
-  <h1>darkcoal-qwen-fast</h1>
-  <span class="badge">Phil Rapid-AIO v5.3 NSFW Q6_K + abliterated Q4_K_M · Phr00t v2 Plus node · /runpod-volume · ghcr.io/alfa-jim/darkcoal-qwen-fast</span>
+  <h1>darkcoal-qwen-2.1</h1>
+  <span class="badge">Qwen-Image-2.1 7B unified T2I+edit+RGBA Q4 uncensored (UC-Q4_K_M + Heretic Q4_K_M + mmproj-f16) · 40-step euler/simple cfg1 shift3.1 · /runpod-volume · ghcr.io/alfa-jim/darkcoal-qwen-2.1</span>
   <input id="endpoint" type="text" value="" placeholder="RunPod endpoint URL (https://api.runpod.ai/v2/<endpoint-id>/runsync)"/>
   <input id="apikey" type="text" value="" placeholder="RunPod API key (rpa_...)"/>
   <button class="btn small ghost" onclick="toggleKeys()">hide keys</button>
@@ -70,9 +70,9 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
   <!-- LEFT: prompt + mode -->
   <div class="side">
     <div class="qwen-note">
-      <b>Phil Rapid-AIO v5.3 NSFW</b> — 4-step Qwen-Image-Edit (<code>qwen-rapid-nsfw-v5.3-Q6_K.gguf</code> + <code>abliterated Q4_K_M</code> + <code>mmproj-f16</code> + <code>qwen_image_vae</code> + <code>ModelSamplingAuraFlow shift 3.1</code> + <code>TextEncodeQwenImageEditPlus v2</code>).<br/>
-      <b>Locked:</b> <code>cfg 1.0</code> · <code>euler_ancestral + beta</code> · <code>steps 4</code> · <code>denoise 1.0</code> · empty negative. No VAEEncode.<br/>
-      <span style="color:var(--muted)">Text2Img = prompt → image (4-step). Edit = ref.png via <code>TextEncodeQwenImageEditPlus(image1 + latent sizing)</code> + <code>EmptySD3Latent</code> → 4-step. Up to 4 refs.</span>
+      <b>Qwen-Image-2.1 7B — unified T2I + edit + RGBA</b> — native <code>qwen-image-2.1-uncensored-Q4_K_M.gguf</code> (abenzerps UC) + <code>qwen3vl_8b_heretic-Q4_K_M.gguf</code> (pottokao Heretic abliterated) + <code>mmproj-f16</code> + <code>qwen_image_2.1_vae</code> + <code>ModelSamplingAuraFlow shift 3.1</code>.<br/>
+      <b>Locked:</b> <code>cfg 1.0</code> · <code>euler + simple</code> · <code>40 steps</code> · <code>denoise 1.0</code> · empty negative. Supports up to 10 refs + RGBA via <code>TextEncodeQwenImageEditPlus</code>.<br/>
+      <span style="color:var(--muted)">Text2Img = prompt → CLIPTextEncode → EmptySD3Latent → KSampler 40-step. Edit = ref.png via <code>TextEncodeQwenImageEditPlus(image1 + target_latent + vae)</code> → KSampler 40-step.</span>
     </div>
 
     <h2>Mode</h2>
@@ -80,12 +80,12 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
       <button id="mode_txt2img" class="btn small primary" onclick="setMode('txt2img')">Generate</button>
       <button id="mode_edit" class="btn small" onclick="setMode('edit')">Edit (ref)</button>
     </div>
-    <div id="hint" class="small" style="margin-top:8px">Generate: prompt → EmptySD3Latent → KSampler(4-step, euler_ancestral/beta). Edit: ref.png → TextEncodeQwenImageEditPlus(image1+latent+prompt) + EmptySD3Latent → KSampler(4-step, euler_ancestral/beta).</div>
+    <div id="hint" class="small" style="margin-top:8px">Generate: prompt → CLIPTextEncode + EmptySD3Latent → KSampler(40-step, euler/simple). Edit: ref.png → TextEncodeQwenImageEditPlus(image1+target_latent+prompt) + EmptySD3Latent → KSampler(40-step).</div>
 
     <h2>Prompt</h2>
     <label id="promptLabel">Prompt — describe the image you want</label>
-    <textarea id="prompt" rows="5">masterpiece anime, 1girl, long blonde hair, blue eyes, highly detailed, soft lighting</textarea>
-    <div class="small" id="promptHelp">Generate: full description. Edit: instruction like “<i>keep the same girl, same face/outfit/style, but she offers a box of chocolates with both hands</i>”.</div>
+    <textarea id="prompt" rows="5">A neon shop sign that reads "QWEN IMAGE 2.1", rainy night, reflections on wet pavement, highly detailed, 1024x1024</textarea>
+    <div class="small" id="promptHelp">Generate: full description. Edit: instruction like “<i>change background to sunset beach, keep same person face/outfit</i>”.</div>
 
     <!-- Negative is intentionally hidden/disabled for Qwen — kept only for custom-workflow debugging -->
     <div id="negWrap" class="hidden">
@@ -101,7 +101,7 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
     <h2>Reference image <span id="refBadge" class="small" style="color:var(--warn)">required for Edit</span></h2>
     <div id="drop" class="drop" onclick="document.getElementById('file').click()" ondrop="onDrop(event)" ondragover="onDrag(event)" ondragleave="this.classList.remove('drag')">
       <div style="font-weight:700">Drop reference here or click</div>
-      <div class="small">sent as <code>input.images</code> base64 — must be <code>ref.png</code> (or any name your workflow references via <code>LoadImage</code>).</div>
+      <div class="small">sent as <code>input.images</code> base64 — must be <code>reference.png</code> (or ref.png) matching <code>LoadImage</code>.</div>
     </div>
     <input id="file" type="file" accept="image/*" multiple class="hidden" onchange="onFiles(this.files)"/>
     <div id="thumbs" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"></div>
@@ -109,11 +109,11 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
       <button class="btn small ghost" onclick="clearImages()">clear refs</button>
       <button class="btn small ghost" onclick="pastePrompt()">paste → prompt</button>
     </div>
-    <div id="editWarn" class="small hidden" style="margin-top:8px;color:var(--warn)">Edit needs a reference image. Upload one — it will be wired as <code>LoadImage(ref.png) → TextEncodeQwenImageEditPlus(image1 + latent)</code>. Generation starts from <code>EmptySD3Latent</code> (latent also feeds Plus node for sizing).</div>
+    <div id="editWarn" class="small hidden" style="margin-top:8px;color:var(--warn)">Edit needs a reference image. Upload one — it will be wired as <code>LoadImage(reference.png) → TextEncodeQwenImageEditPlus(image1 + target_latent)</code>. Generation starts from <code>EmptySD3Latent</code> (also fed to Plus node for sizing).</div>
 
     <h2>Generation</h2>
     <div class="row">
-      <div><label>Steps</label><div class="range"><input id="steps" type="range" min="4" max="60" value="4"/><b id="steps_v">4</b></div></div>
+      <div><label>Steps</label><div class="range"><input id="steps" type="range" min="4" max="60" value="40"/><b id="steps_v">40</b></div></div>
       <div><label>Size preset</label>
         <select id="ar" onchange="applyAR()">
           <option value="">custom</option>
@@ -122,30 +122,28 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
           <option value="4:3">4:3 1216×832</option>
           <option value="9:16">9:16 768×1360</option>
           <option value="16:9">16:9 1360×768</option>
-          <option value="832:1216">portrait 832×1216</option>
-          <option value="1216:832">landscape 1216×832</option>
+          <option value="2048:2048">2048×2048 (needs 24GB)</option>
         </select>
       </div>
     </div>
-    <div class="small" style="margin-top:6px">Rapid-AIO: <b>4 steps, cfg 1.0 · euler_ancestral · beta</b> (Phr00t v5.3 NSFW: <code>lcm/normal</code> also good; <code>euler/simple</code> is WRONG). Both Generate & Edit are 4-step.</div>
+    <div class="small" style="margin-top:6px">Qwen 2.1: <b>40 steps, cfg 1.0 · euler/simple · shift 3.1</b>. Q4 ~12GB VRAM at 1024², 2048² needs 24GB.</div>
     <details style="margin-top:8px">
       <summary class="small" style="cursor:pointer;color:var(--muted)">Advanced — sampler / size</summary>
       <div class="row" style="margin-top:8px">
-        <div><label>Sampler (locked)</label><select id="sampler" disabled><option selected>euler_ancestral</option></select></div>
-        <div><label>Scheduler (locked)</label><select id="scheduler" disabled><option selected>beta</option></select></div>
+        <div><label>Sampler (locked)</label><select id="sampler" disabled><option selected>euler</option></select></div>
+        <div><label>Scheduler (locked)</label><select id="scheduler" disabled><option selected>simple</option></select></div>
       </div>
       <div class="row"><div><label>CFG (locked)</label><input type="text" value="1.0" disabled/></div><div><label>Denoise (locked)</label><input type="text" value="1.0" disabled/></div></div>
       <div class="row3" style="margin-top:6px">
-        <div><label>Width</label><select id="width"><option>512</option><option>768</option><option>832</option><option selected>1024</option><option>1152</option><option>1280</option><option>1360</option><option>1536</option></select></div>
-        <div><label>Height</label><select id="height"><option>512</option><option>768</option><option>832</option><option selected>1024</option><option>1152</option><option>1280</option><option>1360</option><option>1536</option></select></div>
+        <div><label>Width</label><select id="width"><option>512</option><option>768</option><option>832</option><option selected>1024</option><option>1152</option><option>1280</option><option>1536</option><option>2048</option></select></div>
+        <div><label>Height</label><select id="height"><option>512</option><option>768</option><option>832</option><option selected>1024</option><option>1152</option><option>1280</option><option>1360</option><option>1536</option><option>2048</option></select></div>
         <div style="display:flex;align-items:end"><button class="btn small ghost" style="width:100%" onclick="syncWH()">snap ÷64</button></div>
       </div>
-      <div class="small" style="margin-top:6px">Rapid Q6_K: 832×1216 ~16 GB, 1024² ~14 GB. Use <code>Q4_K_M</code> UNet if you want 1024² on 16GB. 4-step = ~8s on 4090.</div>
       <label style="margin-top:8px"><input type="checkbox" id="showNeg" onchange="document.getElementById('negWrap').classList.toggle('hidden', !this.checked)"/> show negative field (debug — Qwen sends " " anyway)</label>
     </details>
 
     <h2>LoRAs (baked only)</h2>
-    <div class="small">Baked in image: <code>qwen-anime-irl.safetensors</code> + any file in <code>/runpod-volume/models/loras/</code> or <code>models/loras/</code>. Add entries here — they become <code>LoraLoader</code> nodes between <code>ModelSamplingAuraFlow</code> and <code>KSampler</code>.</div>
+    <div class="small">Baked in image: check <code>/runpod-volume/models/loras/</code> or <code>models/loras/</code>. Add entries here — they become <code>LoraLoader</code> nodes between <code>ModelSamplingAuraFlow</code> and <code>KSampler</code>.</div>
     <div id="loras"></div>
     <div class="row"><button class="btn small ghost" onclick="addLora()">+ add LoRA</button><button class="btn small ghost" onclick="clearLoras()">clear</button></div>
 
@@ -176,7 +174,7 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
       <b style="font-size:12px">Raw workflow (editable)</b>
       <div class="small">Exact JSON sent to ComfyUI <code>/prompt</code>. Edit it if you want full control — Generate will use this if you toggle it on. Modes map 1:1 to <code>test_input.json</code> (Generate) and <code>test_input_edit.json</code> (Edit).</div>
       <label class="switch"><input id="useCustom" type="checkbox" onchange="toggleCustom()"/> use custom workflow below</label>
-      <textarea id="customJson" rows="12" placeholder='{"12":{"inputs":{"unet_name":"qwen-image-edit-2511-uncensored-Q6_K.gguf"},"class_type":"UnetLoaderGGUF"},"61":{"inputs":{"clip_name":"Qwen2.5-VL-7B-Instruct-q4_0.gguf","type":"qwen_image"},"class_type":"CLIPLoaderGGUF"}}'></textarea>
+      <textarea id="customJson" rows="12" placeholder='{"12":{"inputs":{"unet_name":"qwen-image-2.1-uncensored-Q4_K_M.gguf","type":"qwen2.1"},"class_type":"UnetLoaderGGUF"}}'></textarea>
       <div class="row"><button class="btn small ghost" onclick="copyWorkflow()">copy</button><button class="btn small ghost" onclick="fillCustom()">fill from current settings</button><button class="btn small ghost" onclick="formatCustom()">format</button></div>
     </div>
 
@@ -196,17 +194,17 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
     <div class="row"><button class="btn small" onclick="copyShareLink()">copy share link</button><button class="btn small ghost" onclick="downloadPayload()">payload .json</button></div>
     <div class="small" style="margin-top:8px">Share link encodes prompt + settings + size (refs NOT in URL — share refs separately).</div>
 
-    <h2>Presets — Qwen</h2>
-    <div class="row"><button class="btn small ghost" onclick="preset('generate-anime')">generate anime</button><button class="btn small ghost" onclick="preset('generate-photo')">generate photo</button></div>
-    <div class="row" style="margin-top:6px"><button class="btn small ghost" onclick="preset('edit-chocolate')">edit: chocolates</button><button class="btn small ghost" onclick="preset('edit-beach')">edit: beach</button></div>
+    <h2>Presets — Qwen 2.1</h2>
+    <div class="row"><button class="btn small ghost" onclick="preset('generate-neon')">generate neon sign</button><button class="btn small ghost" onclick="preset('generate-photo')">generate photo</button></div>
+    <div class="row" style="margin-top:6px"><button class="btn small ghost" onclick="preset('edit-beach')">edit: beach bg</button><button class="btn small ghost" onclick="preset('edit-pose')">edit: pose change</button></div>
     <div class="row" style="margin-top:6px"><button class="btn small ghost" onclick="preset('portrait')">portrait 832×1216</button><button class="btn small ghost" onclick="preset('landscape')">landscape 1216×832</button></div>
-    <div class="small" style="margin-top:6px">Edit presets craft the <i>instruction</i> prompt — keep “same girl/face/outfit/style” in the text for identity preservation.</div>
+    <div class="small" style="margin-top:6px">Edit presets craft the <i>instruction</i> prompt — keep “same person/face/outfit” for identity.</div>
 
     <h2>Worker</h2>
     <div class="kv">
-      Image: <b>ghcr.io/alfa-jim/darkcoal-qwen-fast:latest</b> (FAST, ~5 GB image + GGUFs on <code>/runpod-volume</code>)<br/>
-      Models: <b>qwen-rapid-nsfw-v5.3-Q6_K.gguf</b> (~13 GB) + <b>abliterated Q4_K_M</b> (~4 GB) + <b>mmproj-f16</b> (1.35 GB) + <b>qwen_image_vae</b> + <b>qwen-anime-irl LoRA</b><br/>
-      GPU: <b>4090 24 GB</b> · <code>shift 3.1</code> · <code>4-step · euler_ancestral/beta · cfg 1</code> · <code>TextEncodeQwenImageEditPlus v2</code><br/>
+      Image: <b>ghcr.io/alfa-jim/darkcoal-qwen-2.1:latest</b> (FAST, VAE+LoRA baked, GGUFs on <code>/runpod-volume</code>)<br/>
+      Models: <b>qwen-image-2.1-uncensored-Q4_K_M.gguf</b> (~3.8GB) + <b>qwen3vl_8b_heretic-Q4_K_M</b> (~4GB) + <b>mmproj-f16</b> (1.35GB) + <b>qwen_image_2.1_vae</b><br/>
+      GPU: <b>4090 24GB recommended for 2048</b> · <code>shift 3.1</code> · <code>40-step · euler/simple · cfg 1</code> · <code>TextEncodeQwenImageEditPlus</code> (up to 10 refs, RGBA)<br/>
       Try <b>/runsync</b> (sync) or <a href="#" onclick="setEndpointMode('run');return false">/run</a> (async poll). Current: <b id="epMode">runsync</b>
     </div>
     <label>Endpoint path</label>
@@ -217,8 +215,8 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
 
 <script>
 const $ = s => document.getElementById(s);
-let mode = 'txt2img'; // txt2img = Generate, edit = Qwen-Image-Edit
-let refs = []; // {name, dataUrl, base64}
+let mode = 'txt2img';
+let refs = [];
 let lastSeed = null;
 let epMode = 'runsync';
 
@@ -228,7 +226,6 @@ function toggleKeys(){ const a=$('apikey'), e=$('endpoint'); const t=a.type==='p
 $('apikey').type='password'; $('endpoint').type='password';
 
 function setMode(m){
-  // normalize legacy name img2img -> edit
   if(m==='img2img') m='edit';
   mode=m;
   $('mode_txt2img').className = m==='txt2img' ? 'btn small primary' : 'btn small';
@@ -238,13 +235,11 @@ function setMode(m){
   $('editWarn').classList.toggle('hidden', !isEdit || refs.length>0);
   $('promptLabel').textContent = isEdit ? 'Prompt — edit instruction (keep identity in the text)' : 'Prompt — describe the image you want';
   $('promptHelp').innerHTML = isEdit
-    ? 'Edit instruction, e.g. “<i>keep the same girl, same face, same outfit and art style, same background, now she offers a box of chocolates with both hands toward viewer</i>”.'
-    : 'Generate: full description, e.g. “<i>masterpiece anime, 1girl, long purple hair, lavender cardigan...</i>”.';
+    ? 'Edit instruction, e.g. “<i>change background to sunset beach, keep same person face/outfit</i>”.'
+    : 'Generate: full description, e.g. “<i>A neon shop sign that reads QWEN IMAGE 2.1, rainy night, reflections</i>”.';
   $('hint').textContent = isEdit
-    ? 'Edit: ref.png → TextEncodeQwenImageEditPlus(prompt + image1 + latent sizing + vae) → KSampler(4-step, euler_ancestral/beta). NOT VAEEncode.'
-    : 'Generate: prompt → CLIPTextEncode + EmptySD3Latent → KSampler(4-step, euler_ancestral/beta).';
-  // Rapid-AIO is 4-step locked — force 4
-  if(Number($('steps').value) !== 4){ $('steps').value=4; $('steps_v').textContent=4; log('Rapid-AIO: forced steps to 4 (accelerated 4-step model)'); }
+    ? 'Edit: reference.png → TextEncodeQwenImageEditPlus(prompt + image1 + target_latent + vae) → KSampler(40-step, euler/simple).'
+    : 'Generate: prompt → CLIPTextEncode + EmptySD3Latent → KSampler(40-step, euler/simple).';
   log('mode: '+m);
 }
 $('steps').addEventListener('input',()=> $('steps_v').textContent=$('steps').value);
@@ -270,12 +265,11 @@ function onFiles(files){
       const dataUrl=reader.result;
       const base64 = dataUrl.split(',')[1];
       let name;
-      if (refs.length===0) name='ref.png';
-      else name=`ref${refs.length+1}.png`;
+      if (refs.length===0) name='reference.png';
+      else name=`reference${refs.length+1}.png`;
       if (file.name.toLowerCase().includes('mask')) name='mask.png';
       refs.push({name, dataUrl, base64});
       renderThumbs();
-      // auto-switch to Edit when a ref is dropped in Generate
       if(mode==='txt2img') log('hint: you dropped a reference — switch to Edit to use it (Generate ignores refs)');
       if(mode==='edit') $('editWarn').classList.add('hidden');
     };
@@ -287,7 +281,7 @@ function renderThumbs(){
   refs.forEach((r,i)=>{
     const d=document.createElement('div'); d.style.position='relative';
     d.innerHTML = `<img class="thumb" src="${r.dataUrl}"/><div style="position:absolute;top:6px;left:6px;background:rgba(0,0,0,.6);padding:2px 6px;border-radius:99px;font-size:11px">${r.name}</div><button class="btn small ghost" style="position:absolute;top:6px;right:6px;padding:4px 6px" onclick="removeRef(${i})">✕</button>`;
-    d.querySelector('img').onclick=()=>{ const n=prompt('Rename (must match LoadImage node, e.g. ref.png)', r.name); if(n){ r.name=n; renderThumbs(); } };
+    d.querySelector('img').onclick=()=>{ const n=prompt('Rename (must match LoadImage node, e.g. reference.png)', r.name); if(n){ r.name=n; renderThumbs(); } };
     wrap.appendChild(d);
   });
   if(mode==='edit') $('editWarn').classList.toggle('hidden', refs.length>0);
@@ -297,7 +291,7 @@ function clearImages(){ refs=[]; renderThumbs(); log('cleared refs'); if(mode===
 
 // LoRAs
 function addLora(name='', w=0.8){ const wrap=$('loras'); const row=document.createElement('div'); row.className='lora';
-  row.innerHTML=`<input type="text" placeholder="lora name without .safetensors, e.g. qwen-anime-irl" value="${name}"/><input type="number" step="0.05" min="-2" max="2" value="${w}"/><button class="btn small ghost" onclick="this.parentElement.remove()">✕</button>`;
+  row.innerHTML=`<input type="text" placeholder="lora name without .safetensors, e.g. my-lora" value="${name}"/><input type="number" step="0.05" min="-2" max="2" value="${w}"/><button class="btn small ghost" onclick="this.parentElement.remove()">✕</button>`;
   wrap.appendChild(row);
 }
 function clearLoras(){ $('loras').innerHTML=''; }
@@ -308,10 +302,10 @@ function useLastSeed(){ if(lastSeed!=null) $('seed').value=lastSeed; }
 function pastePrompt(){ navigator.clipboard.readText().then(t=> $('prompt').value=t).catch(()=>log('clipboard denied')); }
 
 function preset(k){
-  if(k==='generate-anime'){ $('prompt').value='masterpiece anime, 1girl, long purple hair, soft lighting, detailed face, lavender cardigan, white background, highly detailed anime style'; setMode('txt2img'); $('steps').value=30; $('steps_v').textContent=30; $('width').value=832; $('height').value=1216; }
-  if(k==='generate-photo'){ $('prompt').value='masterpiece photo, 1girl, realistic skin, natural lighting, bokeh, highly detailed'; setMode('txt2img'); $('steps').value=30; $('steps_v').textContent=30; $('width').value=1024; $('height').value=1024; }
-  if(k==='edit-chocolate'){ $('prompt').value='keep the same girl, same face, same outfit, same lavender cardigan and white bandeau, same art style and white background, now she offers a box of chocolates with both hands extended toward the viewer, everything else exactly the same'; setMode('edit'); $('steps').value=40; $('steps_v').textContent=40; }
-  if(k==='edit-beach'){ $('prompt').value='keep the same girl, same face and outfit and art style, change background to a beach at sunset, highly detailed, everything else exactly the same'; setMode('edit'); $('steps').value=40; $('steps_v').textContent=40; }
+  if(k==='generate-neon'){ $('prompt').value='A neon shop sign that reads "QWEN IMAGE 2.1", rainy night, reflections on wet pavement, highly detailed, 1024x1024'; setMode('txt2img'); $('steps').value=40; $('steps_v').textContent=40; $('width').value=1024; $('height').value=1024; }
+  if(k==='generate-photo'){ $('prompt').value='masterpiece photo, 1girl, realistic skin, natural lighting, bokeh, highly detailed, 1024x1024'; setMode('txt2img'); $('steps').value=40; $('steps_v').textContent=40; }
+  if(k==='edit-beach'){ $('prompt').value='Change the background to a sunset beach, keep the same person, same face and outfit, highly detailed, preserve identity'; setMode('edit'); $('steps').value=40; $('steps_v').textContent=40; }
+  if(k==='edit-pose'){ $('prompt').value='Keep the same person, same face and outfit and art style, change pose to standing with arms crossed, highly detailed'; setMode('edit'); $('steps').value=40; $('steps_v').textContent=40; }
   if(k==='portrait'){ $('width').value=832; $('height').value=1216; }
   if(k==='landscape'){ $('width').value=1216; $('height').value=832; }
   log('preset: '+k);
@@ -327,9 +321,8 @@ function toggleCustom(){}
 
 function buildWorkflow(){
   const W=Math.round(Number($('width').value)/64)*64, H=Math.round(Number($('height').value)/64)*64;
-  const steps=4;
-  // Rapid-AIO flow is locked — 4-step accelerated
-  const cfg=1, sampler='euler_ancestral', scheduler='beta', denoise=1.0;
+  const steps=Number($('steps').value)||40;
+  const cfg=1, sampler='euler', scheduler='simple', denoise=1.0;
   let seedVal = Number($('seed').value);
   if (seedVal===-1 || isNaN(seedVal)) seedVal = Math.floor(Math.random()*2147483647);
   lastSeed = seedVal;
@@ -338,10 +331,10 @@ function buildWorkflow(){
 
   const wf = {};
 
-  // Phil Rapid-AIO stack: UnetLoaderGGUF(v53 Q6_K) + CLIPLoaderGGUF(abliterated Q4_K_M) + VAELoader + ModelSamplingAuraFlow
-  wf["12"] = { inputs:{ unet_name:"qwen-rapid-nsfw-v5.3-Q6_K.gguf" }, class_type:"UnetLoaderGGUF" };
-  wf["61"] = { inputs:{ clip_name:"Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf", type:"qwen_image", device:"default" }, class_type:"CLIPLoaderGGUF" };
-  wf["10"] = { inputs:{ vae_name:"qwen_image_vae.safetensors" }, class_type:"VAELoader" };
+  // Qwen 2.1 stack: UnetLoaderGGUF(Q4_K_M UC) + CLIPLoaderGGUF(Heretic Q4_K_M) + VAELoader + ModelSamplingAuraFlow
+  wf["12"] = { inputs:{ unet_name:"qwen-image-2.1-uncensored-Q4_K_M.gguf", type:"qwen2.1" }, class_type:"UnetLoaderGGUF" };
+  wf["61"] = { inputs:{ clip_name:"qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf", type:"qwen_image", device:"default" }, class_type:"CLIPLoaderGGUF" };
+  wf["10"] = { inputs:{ vae_name:"qwen_image_2.1_vae.safetensors" }, class_type:"VAELoader" };
   wf["66"] = { inputs:{ shift:3.1, model:["12",0] }, class_type:"ModelSamplingAuraFlow" };
 
   let curModel = ["66",0], curClip = ["61",0];
@@ -355,18 +348,15 @@ function buildWorkflow(){
   const vaeRef = ["10",0];
 
   if (mode==='txt2img'){
-    // Rapid txt2img: CLIPTextEncode + EmptySD3Latent + KSampler(4-step, euler_ancestral/beta, cfg 1)
     wf["27"] = { inputs:{ width:W, height:H, batch_size: Number($('batch').value)||1 }, class_type:"EmptySD3LatentImage" };
     wf["6"] = { inputs:{ text: $('prompt').value, clip: clipRef }, class_type:"CLIPTextEncode" };
     wf["33"] = { inputs:{ text: " ", clip: clipRef }, class_type:"CLIPTextEncode" };
     wf["31"] = { inputs:{ seed: seedVal, steps, cfg, sampler_name: sampler, scheduler, denoise, model: modelIn, positive:["6",0], negative:["33",0], latent_image: ["27",0] }, class_type:"KSampler" };
   } else {
-    // Rapid edit: LoadImage(ref.png) + EmptySD3Latent → TextEncodeQwenImageEditPlus(v2) → KSampler(4-step)
-    // Phr00t v2 fix: latent is fed to Plus node for correct image scaling (prevents crop/bias).
-    const refName = refs[0]?.name || 'ref.png';
+    const refName = refs[0]?.name || 'reference.png';
     wf["41"] = { inputs:{ image: refName }, class_type:"LoadImage" };
     wf["27"] = { inputs:{ width:W, height:H, batch_size: Number($('batch').value)||1 }, class_type:"EmptySD3LatentImage" };
-    wf["6"] = { inputs:{ prompt: $('prompt').value, clip: clipRef, vae: vaeRef, image1: ["41",0], latent: ["27",0] }, class_type:"TextEncodeQwenImageEditPlus" };
+    wf["6"] = { inputs:{ prompt: $('prompt').value, clip: clipRef, vae: vaeRef, image1: ["41",0], target_latent: ["27",0] }, class_type:"TextEncodeQwenImageEditPlus" };
     wf["33"] = { inputs:{ text: " ", clip: clipRef }, class_type:"CLIPTextEncode" };
     wf["31"] = { inputs:{ seed: seedVal, steps, cfg, sampler_name: sampler, scheduler, denoise, model: modelIn, positive:["6",0], negative:["33",0], latent_image: ["27",0] }, class_type:"KSampler" };
   }
@@ -389,7 +379,7 @@ async function generate(){
   const endpoint = $('endpoint').value.trim().replace(/\/$/,'');
   const key = $('apikey').value.trim();
   if(!endpoint || !key){ alert('Set endpoint URL and API key in the top bar'); return; }
-  if(mode==='edit' && refs.length===0){ alert('Edit mode needs a reference image — drop one on the left (ref.png)'); return; }
+  if(mode==='edit' && refs.length===0){ alert('Edit mode needs a reference image — drop one on the left (reference.png)'); return; }
   const btn=$('go'); btn.disabled=true; const t0=performance.now();
   setStatus('running…');
   const timer = setInterval(()=>{ const s=((performance.now()-t0)/1000).toFixed(1); $('timer').textContent=s+'s'; }, 200);
@@ -401,9 +391,8 @@ async function generate(){
       workflow = buildWorkflow();
     }
     const images = buildImagesPayload();
-    // only send images for Edit; Generate ignores refs
     const payloadImages = mode==='edit' ? images : [];
-    if(mode==='edit' && payloadImages.length===0) log('WARN: Edit with no reference — LoadImage(ref.png) will fail on ComfyUI');
+    if(mode==='edit' && payloadImages.length===0) log('WARN: Edit with no reference — LoadImage(reference.png) will fail on ComfyUI');
     const payload = { input: { workflow, ...(payloadImages.length? {images: payloadImages}: {}) } };
     log('POST '+endpoint + '  mode='+mode+'  workflow nodes='+Object.keys(workflow).length + ' images='+payloadImages.length+'  steps='+workflow["31"].inputs.steps+' cfg='+workflow["31"].inputs.cfg);
 
@@ -420,7 +409,7 @@ async function generate(){
     if (!isSync && data.id){
       const base = url.replace(/\/run\/?$/,'');
       const jobId = data.id;
-      log('async job '+jobId+' polling /status… (up to 10 min for cold start + Qwen 20B)');
+      log('async job '+jobId+' polling /status… (up to 10 min for cold start + Qwen 7B)');
       for(let i=0;i<400;i++){
         await new Promise(r=>setTimeout(r,1500));
         const sRes = await fetch(`${base}/status/${jobId}`, { headers:{'Authorization':'Bearer '+key}});
@@ -430,7 +419,7 @@ async function generate(){
         if (st==='COMPLETED' || st==='COMPLETED ' || sData.output){ data=sData; break; }
         if (st==='FAILED' || st==='ERROR'){ throw new Error('job failed: '+JSON.stringify(sData).slice(0,1200)); }
         log('status: '+(st||JSON.stringify(sData).slice(0,120)));
-        if (i===0) log('hint: Qwen 20B takes 60-90s execution + queue, leave poll running');
+        if (i===0) log('hint: Qwen 7B takes ~20s execution + queue, leave poll running');
       }
       if (!data.output && !data.images) log('WARN: poll ended without output after 10 min - check RunPod dashboard');
     } else if (isSync && !data.output) {
@@ -509,7 +498,7 @@ function copyShareLink(){
 setMode('txt2img');
 $('steps').dispatchEvent(new Event('input'));
 buildWorkflow();
-log('ready — Qwen-Image-Edit native. Generate = txt2img. Edit = ref + instruction (identity preserved). Locked: cfg 1 euler simple denoise 1.0, empty negative. See presets → edit: chocolates.');
+log('ready — Qwen-Image-2.1 native 40-step euler/simple. Generate = txt2img. Edit = ref + instruction. Q4 uncensored.');
 </script>
 </body>
 </html>
