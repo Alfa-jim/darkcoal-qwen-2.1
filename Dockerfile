@@ -20,8 +20,8 @@ ENV PYTHONUNBUFFERED=1
 # Speed up some cmake builds
 ENV CMAKE_BUILD_PARALLEL_LEVEL=8
 
-# Install Python, git and other necessary tools
-RUN apt-get update && apt-get install -y \
+# Install Python, git and other necessary tools (retry apt for transient mirror failures)
+RUN (apt-get update || (sleep 5 && apt-get update) || (sleep 10 && apt-get update)) && apt-get install -y --fix-missing \
     python3.12 \
     python3.12-venv \
     git \
