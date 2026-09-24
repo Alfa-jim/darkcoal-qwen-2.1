@@ -54,31 +54,28 @@ divider
 echo -e "${DIM}Q4 uncensored ~10GB total (3.8GB DiT + 4GB CLIP + 1.35GB mmproj + 0.8GB VAE)${RESET}"
 echo -e "${DIM}Official safetensors 33GB available as fallback - see notes at end${RESET}"
 
-# -- HF token (for gated GGUFs) -------------------------------------------------
-# arudradey/qwen-image-2.1-uncensored-gguf is gated - requires HF_TOKEN
-# Create at https://huggingface.co/settings/tokens (Read) then:
-#   export HF_TOKEN=hf_xxx   before running this script
-# The script also works with:  HF_TOKEN=hf_xxx ./setup_network_volume.sh
+# -- HF token (optional, for gated repos) ---------------------------------------
+# New sources (abenzerps + pottokao) are PUBLIC, no token needed.
+# If you use a gated repo, export HF_TOKEN=hf_xxx before running.
 if [ -n "${HF_TOKEN:-}" ]; then
-  info "Using HF_TOKEN (gated GGUF auth enabled)"
+  info "Using HF_TOKEN (auth enabled)"
   AUTH_ARGS=(-H "Authorization: Bearer $HF_TOKEN")
 else
-  warn "HF_TOKEN not set - arudradey GGUFs will fail with 'Invalid username or password'"
-  warn "  Create token: https://huggingface.co/settings/tokens -> export HF_TOKEN=hf_xxx"
   AUTH_ARGS=()
 fi
 
 # -- Config -------------------------------------------------------------------
-# Primary: community Q4 uncensored (arudradey) - GATED, needs HF_TOKEN
+# PUBLIC sources (no token): abenzerps DiT + pottokao Heretic text encoder (Q4 uncensored/abliterated)
+# arudradey was deleted (404) - switched to abenzerps/pottokao 2026-09-24 (575k downloads)
 # Filenames are the ones test_input.json expects:
 #   text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf
 #   text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf
 #   diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf
-#   vae/qwen_image_2.1_vae.safetensors (public, no token needed)
+#   vae/qwen_image_2.1_vae.safetensors (public)
 VAE_URL="https://huggingface.co/Qwen/Qwen-Image-2.1/resolve/main/vae/diffusion_pytorch_model.safetensors"
-TE_Q4_URL="https://huggingface.co/arudradey/qwen-image-2.1-uncensored-gguf/resolve/main/qwen-image-2.1-text-encoder-Q4_K_M.gguf"
-MMPROJ_URL="https://huggingface.co/arudradey/qwen-image-2.1-uncensored-gguf/resolve/main/qwen-image-2.1-mmproj-f16.gguf"
-DM_Q4_URL="https://huggingface.co/arudradey/qwen-image-2.1-uncensored-gguf/resolve/main/qwen-image-2.1-uncensored-Q4_K_M.gguf"
+TE_Q4_URL="https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/qwen3vl_8b_heretic-Q4_K_M.gguf"
+MMPROJ_URL="https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/mmproj-qwen3vl_8b_heretic-f16.gguf"
+DM_Q4_URL="https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q4_K_M.gguf"
 
 # Minimum valid sizes (bytes) - catches HTML 404 pages (7KB) and truncated files
 VAE_MIN=500000000
@@ -210,6 +207,7 @@ if [ "$FAIL" -gt 0 ] || [ "$ALL_OK" != "1" ]; then
   echo -e "    ${DIM}rm $TE_DIR/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf && ./setup_network_volume.sh${RESET}"
   echo -e "  * Check volume mount: ${DIM}df -h $VOL_BASE && ls -lh $MODELS_BASE/*/*${RESET}"
   echo -e "  * Official 33GB safetensors fallback: ${DIM}huggingface-cli download Qwen/Qwen-Image-2.1 --local-dir /tmp/q21 --include 'vae/*' 'transformer/*' 'text_encoder/*'${RESET}"
+  echo -e "  * Heretic = uncensored/abliterated (pottokao + abenzerps, public, no token)"
   exit 1
 else
   ok "All Q4 files ready!"
