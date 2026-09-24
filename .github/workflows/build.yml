@@ -1,9 +1,9 @@
-name: Build and Push to GHCR (qwen-fast â€” network-volume)
+name: Build and Push to GHCR (qwen-2.1 — network-volume)
 
 on:
   push:
     branches: [main, master]
-    tags: ["late2", "v*"]
+    tags: ["v*"]
   workflow_dispatch:
 
 jobs:
@@ -36,9 +36,9 @@ jobs:
           sudo apt-get clean
           sudo docker system prune -af
           df -h
-          echo "FAST image â€” no 20GB GGUF bake, build should be ~3 min."
+          echo "Qwen 2.1 FAST — volume-native, no 33GB bake, build ~3 min."
 
-      - name: Build and push qwen-fast
+      - name: Build and push qwen-2.1
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -47,11 +47,9 @@ jobs:
           push: true
           target: final
           build-args: |
-            MODEL_TYPE=qwen-image-edit
-            COMFYUI_VERSION=0.29.0
+            MODEL_TYPE=qwen-2.1
+            COMFYUI_VERSION=0.3.43
             CUDA_VERSION_FOR_COMFY=12.6
             USE_NETWORK_VOLUME=true
           tags: |
-            ghcr.io/${{ steps.owner.outputs.owner }}/darkcoal-qwen-fast:latest
-            ghcr.io/${{ steps.owner.outputs.owner }}/darkcoal-qwen-fast:qwen-image-edit
-            ghcr.io/${{ steps.owner.outputs.owner }}/darkcoal-qwen-fast:late2
+            ghcr.io/${{ steps.owner.outputs.owner }}/darkcoal-qwen-2.1:latest
