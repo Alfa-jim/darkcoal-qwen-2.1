@@ -71,14 +71,14 @@ fi
 #   text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf
 #   text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf
 #   diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf
-#   vae/qwen_image_2.1_vae.safetensors (public)
-VAE_URL="https://huggingface.co/Qwen/Qwen-Image-2.1/resolve/main/vae/diffusion_pytorch_model.safetensors"
+#   vae/qwen_image_vae.safetensors (Comfy converted, ~300MB, not diffusers raw 1.3GB)
+VAE_URL="https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors"
 TE_Q4_URL="https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/qwen3vl_8b_heretic-Q4_K_M.gguf"
 MMPROJ_URL="https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/mmproj-qwen3vl_8b_heretic-f16.gguf"
 DM_Q4_URL="https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q4_K_M.gguf"
 
 # Minimum valid sizes (bytes) - catches HTML 404 pages (7KB) and truncated files
-VAE_MIN=500000000
+VAE_MIN=150000000
 TE_MIN=3000000000
 MMPROJ_MIN=1000000000
 DM_MIN=3000000000
@@ -95,7 +95,7 @@ if [ "$CLEAN" = "1" ]; then
   rm -f "$TE_DIR/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf" \
         "$TE_DIR/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf" \
         "$DM_DIR/qwen-image-2.1-uncensored-Q4_K_M.gguf" \
-        "$VAE_DIR/qwen_image_2.1_vae.safetensors" 2>&1 | sed 's/^/  /' || true
+        "$VAE_DIR/qwen_image_vae.safetensors" 2>&1 | sed 's/^/  /' || true
   ok "Cleaned - will re-download"
 fi
 
@@ -150,7 +150,7 @@ download_one() {
 # -- Download all -------------------------------------------------------------
 step "2/4 - Downloading Q4 uncensored (safe resume, 5 retries)"
 FAIL=0
-download_one "$VAE_DIR/qwen_image_2.1_vae.safetensors" "$VAE_URL" "$VAE_MIN" || FAIL=$((FAIL+1))
+download_one "$VAE_DIR/qwen_image_vae.safetensors" "$VAE_URL" "$VAE_MIN" || FAIL=$((FAIL+1))
 echo ""
 download_one "$TE_DIR/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf" "$TE_Q4_URL" "$TE_MIN" || FAIL=$((FAIL+1))
 echo ""
@@ -163,7 +163,7 @@ echo ""
 step "3/4 - Verifying"
 divider
 ALL_OK=1
-for entry in "$VAE_DIR/qwen_image_2.1_vae.safetensors:$VAE_MIN" \
+for entry in "$VAE_DIR/qwen_image_vae.safetensors:$VAE_MIN" \
              "$TE_DIR/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf:$TE_MIN" \
              "$TE_DIR/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf:$MMPROJ_MIN" \
              "$DM_DIR/qwen-image-2.1-uncensored-Q4_K_M.gguf:$DM_MIN"; do

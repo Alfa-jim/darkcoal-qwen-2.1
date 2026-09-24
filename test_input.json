@@ -2,9 +2,9 @@
   "input": {
     "workflow": {
       "10": {
-        "inputs": { "vae_name": "qwen_image_2.1_vae.safetensors" },
+        "inputs": { "vae_name": "qwen_image_vae.safetensors" },
         "class_type": "VAELoader",
-        "_meta": { "title": "Load VAE (Qwen 2.1)" }
+        "_meta": { "title": "Load VAE (Qwen 2.1) - Comfy converted, not diffusers raw" }
       },
       "12": {
         "inputs": { "unet_name": "qwen-image-2.1-uncensored-Q4_K_M.gguf" },
