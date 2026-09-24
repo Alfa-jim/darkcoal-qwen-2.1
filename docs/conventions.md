@@ -1,4 +1,4 @@
-# Introduction
+﻿# Introduction
 
 This project (`worker-comfyui`) provides a way to run [ComfyUI](https://github.com/comfyanonymous/ComfyUI) as a serverless API worker on the [RunPod](https://www.runpod.io/) platform. Its main purpose is to allow users to submit ComfyUI image generation workflows via a simple API call and receive the resulting images, either directly as base64-encoded strings or via an upload to an AWS S3 bucket.
 
@@ -72,11 +72,11 @@ This document outlines the key operational and structural conventions for the `w
 
 Models are categorized based on node types using these mappings:
 
-- `UpscaleModelLoader` → `upscale_models`
-- `VAELoader` → `vae`
-- `UNETLoader`, `UnetLoaderGGUF`, `Hy3DModelLoader` → `diffusion_models`
-- `DualCLIPLoader`, `TripleCLIPLoader` → `text_encoders`
-- `LoraLoader` → `loras`
+- `UpscaleModelLoader` - `upscale_models`
+- `VAELoader` - `vae`
+- `UNETLoader`, `UnetLoaderGGUF`, `Hy3DModelLoader` - `diffusion_models`
+- `DualCLIPLoader`, `TripleCLIPLoader` - `text_encoders`
+- `LoraLoader` - `loras`
 - And additional specialized loaders for proper model categorization
 
 ## Custom Node Dependencies

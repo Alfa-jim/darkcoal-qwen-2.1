@@ -1,4 +1,4 @@
-"""
+﻿"""
 Network Volume diagnostics for worker-comfyui.
 
 This module provides tools to debug network volume model path issues.
@@ -19,7 +19,7 @@ MODEL_TYPES = {
     "upscale_models": [".safetensors", ".pt", ".pth"],
     "vae": [".safetensors", ".pt", ".bin"],
     "unet": [".safetensors", ".pt", ".bin"],
-    # GGUF — darkcoal-qwen-fast uses these on the network volume
+    # GGUF - darkcoal-qwen-fast uses these on the network volume
     "text_encoders": [".gguf", ".safetensors", ".bin"],
     "diffusion_models": [".gguf", ".safetensors", ".bin"],
 }
@@ -43,14 +43,14 @@ def run_network_volume_diagnostics():
     extra_model_paths_file = "/comfyui/extra_model_paths.yaml"
     print("\n[1] Checking extra_model_paths.yaml configuration...")
     if os.path.isfile(extra_model_paths_file):
-        print(f"    ✓ FOUND: {extra_model_paths_file}")
+        print(f"    - FOUND: {extra_model_paths_file}")
         with open(extra_model_paths_file, "r") as f:
             content = f.read()
             print("\n    Configuration content:")
             for line in content.split("\n"):
                 print(f"      {line}")
     else:
-        print(f"    ✗ NOT FOUND: {extra_model_paths_file}")
+        print(f"    - NOT FOUND: {extra_model_paths_file}")
         print(
             "    This file is required for ComfyUI to find models on the network volume."
         )
@@ -59,9 +59,9 @@ def run_network_volume_diagnostics():
     runpod_volume = "/runpod-volume"
     print(f"\n[2] Checking network volume mount at {runpod_volume}...")
     if os.path.isdir(runpod_volume):
-        print(f"    ✓ MOUNTED: {runpod_volume}")
+        print(f"    - MOUNTED: {runpod_volume}")
     else:
-        print(f"    ✗ NOT MOUNTED: {runpod_volume}")
+        print(f"    - NOT MOUNTED: {runpod_volume}")
         print(
             "    Make sure you have attached a network volume to your serverless endpoint."
         )
@@ -72,10 +72,10 @@ def run_network_volume_diagnostics():
     print("\n[3] Checking directory structure...")
     models_dir = os.path.join(runpod_volume, "models")
     if os.path.isdir(models_dir):
-        print(f"    ✓ FOUND: {models_dir}")
+        print(f"    - FOUND: {models_dir}")
     else:
-        print(f"    ✗ NOT FOUND: {models_dir}")
-        print("\n    ⚠️  PROBLEM: The 'models' directory does not exist!")
+        print(f"    - NOT FOUND: {models_dir}")
+        print("\n    --  PROBLEM: The 'models' directory does not exist!")
         print("    You need to create the following structure on your network volume:")
         print_expected_structure()
         print("=" * 70)
@@ -101,7 +101,7 @@ def run_network_volume_diagnostics():
                             files.append(f"{f} ({size_str})")
                             found_any_models = True
                         else:
-                            files.append(f"{f} (⚠️ ignored - invalid extension)")
+                            files.append(f"{f} (-- ignored - invalid extension)")
             except Exception as e:
                 print(f"    {model_type}/: Error reading directory - {e}")
                 continue
@@ -118,10 +118,10 @@ def run_network_volume_diagnostics():
     # Summary
     print("\n[5] Summary")
     if found_any_models:
-        print("    ✓ Models found on network volume!")
+        print("    - Models found on network volume!")
         print("    ComfyUI should be able to load these models.")
     else:
-        print("    ⚠️  No valid model files found on network volume!")
+        print("    --  No valid model files found on network volume!")
         print("\n    Make sure your models have the correct file extensions:")
         print("    - Checkpoints: .safetensors, .ckpt, .pt, .pth, .bin")
         print("    - LoRAs: .safetensors, .pt")
@@ -136,16 +136,16 @@ def print_expected_structure():
     """Print the expected directory structure for the network volume."""
     print("\n    Expected directory structure:")
     print("    /runpod-volume/")
-    print("    └── models/")
-    print("        ├── checkpoints/      <- .safetensors/.ckpt")
-    print("        ├── loras/             <- .safetensors")
-    print("        ├── vae/               <- .safetensors")
-    print("        ├── clip/              <- .safetensors")
-    print("        ├── controlnet/        <- .safetensors")
-    print("        ├── embeddings/        <- embeddings")
-    print("        ├── upscale_models/    <- upscale")
-    print("        ├── text_encoders/     <- .gguf (Qwen VL, CLIP GGUF)")
-    print("        └── diffusion_models/  <- .gguf (UNet/DiT GGUF)")
+    print("    --- models/")
+    print("        --- checkpoints/      <- .safetensors/.ckpt")
+    print("        --- loras/             <- .safetensors")
+    print("        --- vae/               <- .safetensors")
+    print("        --- clip/              <- .safetensors")
+    print("        --- controlnet/        <- .safetensors")
+    print("        --- embeddings/        <- embeddings")
+    print("        --- upscale_models/    <- upscale")
+    print("        --- text_encoders/     <- .gguf (Qwen VL, CLIP GGUF)")
+    print("        --- diffusion_models/  <- .gguf (UNet/DiT GGUF)")
 
 
 def format_size(size_bytes):

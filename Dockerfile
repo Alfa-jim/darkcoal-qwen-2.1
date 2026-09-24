@@ -1,4 +1,4 @@
-# Need ubuntu24.04 for python3.12, but no 12.4.1-ubuntu24.04 tag exists -> use 12.6.3-ubuntu24.04 (driver >=560, compatible with 535+ hosts via compat, unlike 12.8 needing 570)
+﻿# Need ubuntu24.04 for python3.12, but no 12.4.1-ubuntu24.04 tag exists -> use 12.6.3-ubuntu24.04 (driver >=560, compatible with 535+ hosts via compat, unlike 12.8 needing 570)
 ARG BASE_IMAGE=nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
 
 # Stage 1: Base image with common dependencies
@@ -83,7 +83,7 @@ RUN if [ "$ENABLE_PYTORCH_UPGRADE" = "true" ]; then \
 #
 # torch is installed FIRST, pinned to cu126 (matches BASE_IMAGE 12.6.3 / driver >=560).
 # Passing --index-url via comfy install alone doesn't pin torch during the
-# `uv pip install -r requirements.txt` step — ComfyUI's bare `torch` pulls
+# `uv pip install -r requirements.txt` step - ComfyUI's bare `torch` pulls
 # cu13 from PyPI (needs driver >=580) which fails cuda init on 12.6 hosts.
 RUN uv pip install torch==2.11.0 torchvision==0.26.0 torchaudio==2.11.0 \
       --index-url https://download.pytorch.org/whl/cu126 \
@@ -99,7 +99,7 @@ RUN uv pip install "gguf>=0.13.0" sentencepiece protobuf && \
     comfy-node-install ComfyUI-GGUF || (git clone https://github.com/city96/ComfyUI-GGUF /comfyui/custom_nodes/ComfyUI-GGUF && uv pip install -r /comfyui/custom_nodes/ComfyUI-GGUF/requirements.txt || true) && \
     ls -l /comfyui/custom_nodes/ComfyUI-GGUF/nodes.py && uv pip show gguf | head -5
 
-# Phr00t Rapid-AIO fixed Qwen node — replaces ComfyUI's broken TextEncodeQwenImageEdit scaling/crop + single-image limit
+# Phr00t Rapid-AIO fixed Qwen node - replaces ComfyUI's broken TextEncodeQwenImageEdit scaling/crop + single-image limit
 # This adds TextEncodeQwenImageEditPlus (up to 4 images, latent-aware sizing). Required for Rapid.
 # Must land AFTER ComfyUI install so it overwrites /comfyui/comfy_extras/nodes_qwen.py last.
 RUN echo "=== patching comfy_extras/nodes_qwen.py -> Phr00t v2 ===" && \
@@ -110,7 +110,7 @@ RUN echo "=== patching comfy_extras/nodes_qwen.py -> Phr00t v2 ===" && \
     grep -q "TextEncodeQwenImageEditPlus" /comfyui/comfy_extras/nodes_qwen.py && echo "Plus node OK" || (echo "FATAL: patched nodes_qwen.py missing TextEncodeQwenImageEditPlus"; exit 1) && \
     grep -q "TextEncodeQwenImageEdit" /comfyui/comfy_extras/nodes_qwen.py && echo "Base node OK" || (echo "FATAL: patched nodes_qwen.py missing TextEncodeQwenImageEdit"; exit 1)
 
-# Support for the network volume — copy BEFORE smoke test so the yaml is validated at build time.
+# Support for the network volume - copy BEFORE smoke test so the yaml is validated at build time.
 WORKDIR /comfyui
 ADD src/extra_model_paths.yaml ./
 # Validate yaml syntax + that ComfyUI extra_config loader accepts our keys (including unet_gguf/clip_gguf).
@@ -120,7 +120,7 @@ WORKDIR /
 
 # Build-time smoke test: actually start ComfyUI (imports the full node graph incl. ComfyUI-GGUF)
 # so a startup-breaking dependency is caught HERE, at build time, instead of as a
-# runtime "server not reachable" failure on a live worker. Runs on CPU — no GPU needed.
+# runtime "server not reachable" failure on a live worker. Runs on CPU - no GPU needed.
 # quick-test-for-ci imports all nodes, including UnetLoaderGGUF/CLIPLoaderGGUF.
 RUN cd /comfyui && timeout 300 python main.py --quick-test-for-ci --cpu
 # Change working directory to ComfyUI (for heritage layer assumptions)
@@ -154,7 +154,7 @@ CMD ["/start.sh"]
 FROM base AS downloader
 
 ARG HUGGINGFACE_ACCESS_TOKEN
-# Set default model type — qwen-image-edit supports both text2img and image edit
+# Set default model type - qwen-image-edit supports both text2img and image edit
 ARG MODEL_TYPE=qwen-2.1
 
 # Change working directory to ComfyUI
@@ -203,9 +203,9 @@ RUN if [ "$MODEL_TYPE" = "illustrious" ]; then \
       wget -q -O models/checkpoints/Illustrious-XL-v2.0.safetensors https://huggingface.co/OnomaAIResearch/Illustrious-XL-v2.0/resolve/main/Illustrious-XL-v2.0.safetensors; \
     fi
 
-# Qwen-Image-Edit — GGUF-ONLY uncensored (no safetensors bloat)
+# Qwen-Image-Edit - GGUF-ONLY uncensored (no safetensors bloat)
 # For MODEL_TYPE=qwen-image-edit we bake ONLY the native uncensored GGUFs + VAE + anime LoRA.
-# Do NOT download the 8.7GB fp8 text encoder or 19GB fp8 diffusion — those are censored and 28GB wasted.
+# Do NOT download the 8.7GB fp8 text encoder or 19GB fp8 diffusion - those are censored and 28GB wasted.
 # qwen-image (non-edit) still uses fp8 safetensors (separate path, not used by default target).
 RUN if [ "$MODEL_TYPE" = "qwen-image" ]; then \
       mkdir -p models/diffusion_models models/text_encoders models/vae && \
@@ -220,7 +220,7 @@ RUN if [ "$MODEL_TYPE" = "qwen-image-edit" ]; then \
       echo "downloader: VAE + anime LoRA ready (no fp8 bloat)" && ls -lh models/vae/ models/loras/; \
     fi
 
-# ── FAST VARIANT ──
+# -- FAST VARIANT --
 # darkcoal-qwen-fast is network-volume-native: the 3 uncensored GGUFs (q4_0 4.1GB + Q6_K 15.6GB + mmproj 1.35GB)
 # live on /runpod-volume, NOT baked into the image. This cuts image from ~30GB -> ~5GB and
 # build from ~12 min -> ~3 min, and cold start from ~10 min -> ~90s (volume reads instantly
@@ -229,7 +229,7 @@ RUN if [ "$MODEL_TYPE" = "qwen-image-edit" ]; then \
 # To bake GGUFs again (e.g. for offline test), set USE_NETWORK_VOLUME=false at build time.
 ARG USE_NETWORK_VOLUME=true
 
-# Stage 3: qwen-downloader — adds native uncensored GGUFs on top of downloader (inherits VAE, no COPY bloat)
+# Stage 3: qwen-downloader - adds native uncensored GGUFs on top of downloader (inherits VAE, no COPY bloat)
 # In FAST mode this stage is effectively a no-op (models come from volume).
 FROM downloader AS qwen-downloader
 
@@ -248,10 +248,10 @@ RUN if [ "$MODEL_TYPE" = "qwen-image-edit" ] && [ "$USE_NETWORK_VOLUME" != "true
       echo "=== [2/2] DONE ===" && ls -lh models/diffusion_models/qwen-image-edit-2511-uncensored-Q6_K.gguf && df -h && \
       echo "=== ALL GGUF DOWNLOADS DONE (native uncensored, 19.7GB total) ===" && du -sh models/* && ls -lh models/text_encoders/ models/diffusion_models/ models/vae/; \
     elif [ "$MODEL_TYPE" = "qwen-image-edit" ]; then \
-      echo "FAST: skipping GGUF bake (USE_NETWORK_VOLUME=true) — models live on /runpod-volume. VAE+LoRA are baked."; df -h; ls -R models || true; \
+      echo "FAST: skipping GGUF bake (USE_NETWORK_VOLUME=true) - models live on /runpod-volume. VAE+LoRA are baked."; df -h; ls -R models || true; \
     fi
 
-# mmproj vision projector — also volume-native in FAST mode; required for TextEncodeQwenImageEdit*.
+# mmproj vision projector - also volume-native in FAST mode; required for TextEncodeQwenImageEdit*.
 # Without it, ComfyUI warns "Can't find mmproj file" and throws "mat1 and mat2 shapes cannot be multiplied (792x1280 and 3840x1280)".
 RUN if [ "$MODEL_TYPE" = "qwen-image-edit" ] && [ "$USE_NETWORK_VOLUME" != "true" ]; then \
       set -x && \
@@ -266,9 +266,9 @@ RUN if [ "$MODEL_TYPE" = "qwen-image-edit" ] && [ "$USE_NETWORK_VOLUME" != "true
     fi
 
 RUN if [ "$MODEL_TYPE" = "qwen-2.1" ] && [ "$USE_NETWORK_VOLUME" != "true" ]; then \
-      echo "BAKED qwen-2.1 requested but volume-native is recommended � skipping heavy bake, see volume populate script"; \
+      echo "BAKED qwen-2.1 requested but volume-native is recommended - skipping heavy bake, see volume populate script"; \
     elif [ "$MODEL_TYPE" = "qwen-2.1" ]; then \
-      echo "FAST: qwen-2.1 volume-native � transformer 2 shards + text_encoder 4 shards + vae live on /runpod-volume (33GB). Baked VAE stub present."; df -h; ls -R models || true; \
+      echo "FAST: qwen-2.1 volume-native - transformer 2 shards + text_encoder 4 shards + vae live on /runpod-volume (33GB). Baked VAE stub present."; df -h; ls -R models || true; \
     fi
 
 RUN if [ "$MODEL_TYPE" = "qwen-2.1" ]; then \

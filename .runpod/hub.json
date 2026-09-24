@@ -1,6 +1,6 @@
-{
+ï»¿{
   "title": "darkcoal-qwen-2.1",
-  "description": "Experimental Qwen-Image 2.1 (7B unified T2I+edit+RGBA, up to 10 refs) — network-volume-native /runpod-volume — 40-step flow for 4090 24GB",
+  "description": "Experimental Qwen-Image 2.1 (7B unified T2I+edit+RGBA, up to 10 refs) - network-volume-native /runpod-volume - 40-step flow for 4090 24GB",
   "type": "serverless",
   "category": "image",
   "iconUrl": "https://cpjrphpz3t5wbwfe.public.blob.vercel-storage.com/comfy-ui.png",

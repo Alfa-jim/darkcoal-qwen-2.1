@@ -1,4 +1,4 @@
-variable "DOCKERHUB_REPO" {
+﻿variable "DOCKERHUB_REPO" {
   default = "ghcr.io/alfa-jim"
 }
 
@@ -14,7 +14,7 @@ variable "COMFYUI_VERSION" {
   default = "0.3.43"
 }
 
-# Global defaults — must match Dockerfile ARG defaults (12.6.3 / cu126, driver >=560)
+# Global defaults - must match Dockerfile ARG defaults (12.6.3 / cu126, driver >=560)
 variable "BASE_IMAGE" {
   default = "nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04"
 }

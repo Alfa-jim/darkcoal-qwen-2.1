@@ -1,11 +1,11 @@
-﻿# darkcoal-illustrious — RunPod quickstart (4090 24GB)
+﻿# darkcoal-illustrious - RunPod quickstart (4090 24GB)
 
 Image (GHCR, built on push to main):
   ghcr.io/alfa-jim/darkcoal-illustrious:latest
   ghcr.io/alfa-jim/darkcoal-illustrious:illustrious
 
 Baked model: OnomaAIResearch/Illustrious-XL-v2.0 -> models/checkpoints/Illustrious-XL-v2.0.safetensors (~6.5GB)
-VRAM @1024x1024: ~10GB — fits 4090 comfortably.
+VRAM @1024x1024: ~10GB - fits 4090 comfortably.
 
 1) Make GHCR package public once:
    github.com/Alfa-jim/darkcoal-illustrious -> right sidebar Packages -> darkcoal-illustrious -> Package settings -> Change visibility -> Public
@@ -28,5 +28,5 @@ VRAM @1024x1024: ~10GB — fits 4090 comfortably.
 
 Notes:
 - Base image is nvidia/cuda:12.8.1 (allowedCudaVersions 12.8/12.9/13.0 in .runpod/hub.json).
-- No extra VAE/CLIP downloads needed — Illustrious checkpoint is self-contained SDXL.
-- Default workflow is 1024x1024, 28 steps, cfg 6.5, euler_ancestral/normal — tune in your request JSON.
+- No extra VAE/CLIP downloads needed - Illustrious checkpoint is self-contained SDXL.
+- Default workflow is 1024x1024, 28 steps, cfg 6.5, euler_ancestral/normal - tune in your request JSON.

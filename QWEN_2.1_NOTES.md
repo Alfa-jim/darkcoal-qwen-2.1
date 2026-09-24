@@ -1,6 +1,6 @@
-# Qwen 2.1 — Q4 Uncensored Default
+ï»¿# Qwen 2.1 - Q4 Uncensored Default
 
-Wired to **Q4 uncensored** (your request) — ~10GB total, fits 16GB VRAM, cheapest/fastest for experiment.
+Wired to **Q4 uncensored** (your request) - ~10GB total, fits 16GB VRAM, cheapest/fastest for experiment.
 
 ## Default quant (now in test_input.json)
 
@@ -13,13 +13,13 @@ Wired to **Q4 uncensored** (your request) — ~10GB total, fits 16GB VRAM, cheapes
 Other Q4 variants on same HF repo you can swap by changing unet_name:
 - Q4_0 ~3.4GB (smaller, slightly more artifact)
 - Q6_K ~5.5GB (better, needs 18GB VRAM)
-- Q8_0 ~7.5-8GB (you remembered — transformer alone 8GB, best GGUF, ~13GB total)
+- Q8_0 ~7.5-8GB (you remembered - transformer alone 8GB, best GGUF, ~13GB total)
 
-## Populate volume (Pod terminal — serverless sees same at /runpod-volume)
+## Populate volume (Pod terminal - serverless sees same at /runpod-volume)
 
 mkdir -p /runpod-volume/models/text_encoders /runpod-volume/models/diffusion_models /runpod-volume/models/vae /runpod-volume/models/loras
 
-# Q4 uncensored GGUF (community — arudradey/qwen-image-2.1-uncensored-gguf is primary, ghostrider761/tung776 mirrors)
+# Q4 uncensored GGUF (community - arudradey/qwen-image-2.1-uncensored-gguf is primary, ghostrider761/tung776 mirrors)
 curl -L -C - -o /runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf https://huggingface.co/arudradey/qwen-image-2.1-uncensored-gguf/resolve/main/qwen-image-2.1-text-encoder-Q4_K_M.gguf
 curl -L -C - -o /runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf https://huggingface.co/arudradey/qwen-image-2.1-uncensored-gguf/resolve/main/qwen-image-2.1-mmproj-f16.gguf
 curl -L -C - -o /runpod-volume/models/diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf https://huggingface.co/arudradey/qwen-image-2.1-uncensored-gguf/resolve/main/qwen-image-2.1-uncensored-Q4_K_M.gguf
@@ -37,4 +37,4 @@ ls -lh /runpod-volume/models/text_encoders/ /runpod-volume/models/diffusion_mode
 test_input.json = T2I 2048 40-step Q4
 test_input_edit.json = edit 1-ref (supports up to 10x image1..10 + target_latent in 2.1, RGBA via prompt "This is an RGBA image with transparency...")
 
-KSampler locked: steps=40 cfg=1 euler/simple denoise=1 shift=3.1 — not 4-step Rapid.
+KSampler locked: steps=40 cfg=1 euler/simple denoise=1 shift=3.1 - not 4-step Rapid.

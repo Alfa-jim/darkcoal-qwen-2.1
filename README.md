@@ -1,12 +1,12 @@
-# darkcoal-qwen-2.1
+ï»¿# darkcoal-qwen-2.1
 
-> Experimental fork of [darkcoal-qwen-fast](https://github.com/Alfa-jim/darkcoal-qwen-fast) for **Qwen-Image 2.1** (Qwen/Qwen-Image-2.1 - 7B visual DiT, 33GB) — unified T2I + image editing + native RGBA + up to 10 refs. Network-volume-native (/runpod-volume) for RunPod 4090 24GB.
+> Experimental fork of [darkcoal-qwen-fast](https://github.com/Alfa-jim/darkcoal-qwen-fast) for **Qwen-Image 2.1** (Qwen/Qwen-Image-2.1 - 7B visual DiT, 33GB) - unified T2I + image editing + native RGBA + up to 10 refs. Network-volume-native (/runpod-volume) for RunPod 4090 24GB.
 
 > Base: [ComfyUI](https://github.com/comfyanonymous/ComfyUI) as RunPod serverless API. Fork of [runpod-workers/worker-comfyui](https://github.com/runpod-workers/worker-comfyui).
 
 <p align="center"><img src="assets/worker_sitting_in_comfy_chair.jpg" title="Worker sitting in comfy chair" /></p>
 
-**Status: experimental** — Qwen-Image 2.1 is diffusers QwenImage21Pipeline (transformer 7B BF16, Qwen3-VL text encoder, VAE 16x). Requires ComfyUI >=0.3.43 + diffusers>=0.37.
+**Status: experimental** - Qwen-Image 2.1 is diffusers QwenImage21Pipeline (transformer 7B BF16, Qwen3-VL text encoder, VAE 16x). Requires ComfyUI >=0.3.43 + diffusers>=0.37.
 
 ---
 

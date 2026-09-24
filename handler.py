@@ -1,4 +1,4 @@
-import runpod
+﻿import runpod
 from runpod.serverless.utils import rp_upload
 import json
 import urllib.request
@@ -40,8 +40,8 @@ COMFY_API_FALLBACK_MAX_RETRIES = 500
 COMFY_PID_FILE = "/tmp/comfyui.pid"
 # Websocket reconnection behaviour (can be overridden through environment variables)
 # NOTE: more attempts and diagnostics improve debuggability whenever ComfyUI crashes mid-job.
-#   • WEBSOCKET_RECONNECT_ATTEMPTS sets how many times we will try to reconnect.
-#   • WEBSOCKET_RECONNECT_DELAY_S sets the sleep in seconds between attempts.
+#   - WEBSOCKET_RECONNECT_ATTEMPTS sets how many times we will try to reconnect.
+#   - WEBSOCKET_RECONNECT_DELAY_S sets the sleep in seconds between attempts.
 #
 # If the respective env-vars are not supplied we fall back to sensible defaults ("5" and "3").
 WEBSOCKET_RECONNECT_ATTEMPTS = int(os.environ.get("WEBSOCKET_RECONNECT_ATTEMPTS", 5))
@@ -50,7 +50,7 @@ WEBSOCKET_RECONNECT_DELAY_S = int(os.environ.get("WEBSOCKET_RECONNECT_DELAY_S", 
 # Extra verbose websocket trace logs (set WEBSOCKET_TRACE=true to enable)
 if os.environ.get("WEBSOCKET_TRACE", "false").lower() == "true":
     # This prints low-level frame information to stdout which is invaluable for diagnosing
-    # protocol errors but can be noisy in production – therefore gated behind an env-var.
+    # protocol errors but can be noisy in production - therefore gated behind an env-var.
     websocket.enableTrace(True)
 
 # Host where ComfyUI is running
@@ -103,10 +103,10 @@ def _attempt_websocket_reconnect(ws_url, max_attempts, delay_s, initial_error):
         # between a network glitch and an outright ComfyUI crash/OOM-kill.
         srv_status = _comfy_server_status()
         if not srv_status["reachable"]:
-            # If ComfyUI itself is down there is no point in retrying the websocket –
+            # If ComfyUI itself is down there is no point in retrying the websocket -
             # bail out immediately so the caller gets a clear "ComfyUI crashed" error.
             print(
-                f"worker-comfyui - ComfyUI HTTP unreachable – aborting websocket reconnect: {srv_status.get('error', 'status '+str(srv_status.get('status_code')))}"
+                f"worker-comfyui - ComfyUI HTTP unreachable - aborting websocket reconnect: {srv_status.get('error', 'status '+str(srv_status.get('status_code')))}"
             )
             raise websocket.WebSocketConnectionClosedException(
                 "ComfyUI HTTP unreachable during websocket reconnect"
@@ -403,7 +403,7 @@ def get_available_models():
         if chk is not None:
             models["checkpoints"] = chk
 
-        # GGUF loaders — these are the ones that show "not in []" when volume is detached
+        # GGUF loaders - these are the ones that show "not in []" when volume is detached
         for cls, inp in [
             ("UnetLoaderGGUF", "unet_name"),
             ("UnetLoaderGGUFAdvanced", "unet_name"),
@@ -415,7 +415,7 @@ def get_available_models():
                 key = cls.replace("LoaderGGUF", "").replace("Loader", "") + f"::{inp}"
                 # uniq by convention: unet_name / clip_name
                 short = inp if inp not in models else f"{cls}::{inp}"
-                # store both — short for the common single-list case
+                # store both - short for the common single-list case
                 if inp in ("unet_name", "clip_name") and inp not in models:
                     models[inp] = lst
                 models[short] = lst
@@ -524,7 +524,7 @@ def queue_workflow(workflow, client_id, comfy_org_api_key=None):
                     error_message += (
                         "\n\nEmpty unet_name/clip_name lists => GGUF models not discovered."
                         "\nMost common cause: network volume NOT ATTACHED to this endpoint."
-                        "\nFix: RunPod Console → Serverless → your endpoint → Manage → Edit → Advanced → Network Volume → select 'qwen-fast-models' → Save."
+                        "\nFix: RunPod Console - Serverless - your endpoint - Manage - Edit - Advanced - Network Volume - select 'qwen-fast-models' - Save."
                         "\nAlso check: volume must be in the SAME region as the endpoint (CA/US-CA), and"
                         "\nfiles must be exactly at /runpod-volume/models/text_encoders/*.gguf and /runpod-volume/models/diffusion_models/*.gguf"
                         "\nSet NETWORK_VOLUME_DEBUG=true to get volume diagnostics in logs."
@@ -534,7 +534,7 @@ def queue_workflow(workflow, client_id, comfy_org_api_key=None):
             # If we have specific validation errors, format them nicely
             if error_details:
                 detailed_message = f"{error_message}:\n" + "\n".join(
-                    f"• {detail}" for detail in error_details
+                    f"- {detail}" for detail in error_details
                 )
 
                 if any("not in list" in d for d in error_details):

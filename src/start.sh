@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 
 # Start SSH server if PUBLIC_KEY is set (enables remote access and dev-sync.sh)
 if [ -n "$PUBLIC_KEY" ]; then
@@ -51,29 +51,29 @@ except Exception as e:
     echo "worker-comfyui: $GPU_CHECK"
     echo "worker-comfyui: A 'no kernel image is available' error means this torch build"
     echo "worker-comfyui: lacks kernels for this GPU. Otherwise the GPU may not be"
-    echo "worker-comfyui: properly initialized — please contact RunPod support."
+    echo "worker-comfyui: properly initialized - please contact RunPod support."
     exit 1
 fi
-echo "worker-comfyui: GPU available — $GPU_CHECK"
+echo "worker-comfyui: GPU available - $GPU_CHECK"
 
 # Ensure ComfyUI-Manager runs in offline network mode inside the container
 comfy-manager-set-mode offline || echo "worker-comfyui - Could not set ComfyUI-Manager network_mode" >&2
 
-# ── FAST: verify network volume + mount + extra paths before launching ──
+# -- FAST: verify network volume + mount + extra paths before launching --
 # In darkcoal-qwen-fast the 3 uncensored GGUFs are NOT baked; they live on /runpod-volume.
 if [ "${USE_NETWORK_VOLUME:-true}" = "true" ]; then
   # 0) Is the volume actually attached? /runpod-volume missing => endpoint misconfigured.
   if [ ! -d /runpod-volume ]; then
-    echo "worker-comfyui: FATAL — /runpod-volume does not exist (network volume NOT attached to this endpoint)." >&2
-    echo "worker-comfyui: Fix: RunPod Console → Serverless → your endpoint → Manage → Edit → Advanced → Network Volume → select qwen-2.1-models → Save." >&2
+    echo "worker-comfyui: FATAL - /runpod-volume does not exist (network volume NOT attached to this endpoint)." >&2
+    echo "worker-comfyui: Fix: RunPod Console - Serverless - your endpoint - Manage - Edit - Advanced - Network Volume - select qwen-2.1-models - Save." >&2
     echo "worker-comfyui: Continuing anyway so diagnostics still run, but every GGUF request will 400 until the volume is attached." >&2
   elif ! mount 2>/dev/null | grep -q " /runpod-volume " && ! df /runpod-volume >/dev/null 2>&1; then
-    echo "worker-comfyui: WARNING — /runpod-volume exists but does not look like a mount (may be empty container dir)." >&2
-    echo "worker-comfyui: If this is a Pod, volume may be at /workspace instead — check df -h." >&2
+    echo "worker-comfyui: WARNING - /runpod-volume exists but does not look like a mount (may be empty container dir)." >&2
+    echo "worker-comfyui: If this is a Pod, volume may be at /workspace instead - check df -h." >&2
     df -h /runpod-volume 2>&1 | sed 's/^/worker-comfyui:   /' || true
   fi
 
-  # 1) Check individual expected files — PHIL Rapid-AIO (v53) + abliterated
+  # 1) Check individual expected files - PHIL Rapid-AIO (v53) + abliterated
   MISSING=""
   for f in \
     "/runpod-volume/models/text_encoders/Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf" \
@@ -84,18 +84,18 @@ if [ "${USE_NETWORK_VOLUME:-true}" = "true" ]; then
     [ -f "$f" ] || MISSING="$MISSING $f"
   done
   if [ -n "$MISSING" ]; then
-    echo "worker-comfyui: FATAL — USE_NETWORK_VOLUME=true but missing on /runpod-volume:$MISSING" >&2
+    echo "worker-comfyui: FATAL - USE_NETWORK_VOLUME=true but missing on /runpod-volume:$MISSING" >&2
     echo "worker-comfyui: Attach the network volume with the PHIL Rapid-AIO GGUFs and retry." >&2
-    echo "worker-comfyui: The volume was set up with this exact layout — re-run this if Pod went cold:" >&2
+    echo "worker-comfyui: The volume was set up with this exact layout - re-run this if Pod went cold:" >&2
     echo 'worker-comfyui:   mkdir -p /runpod-volume/models/text_encoders /runpod-volume/models/diffusion_models /runpod-volume/models/vae /runpod-volume/models/loras' >&2
     echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/text_encoders/Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf https://huggingface.co/Phil2Sat/Qwen-Image-Edit-Rapid-AIO-GGUF/resolve/main/Qwen2.5-VL-7B-Instruct-abliterated/Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf' >&2
     echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/text_encoders/Qwen2.5-VL-7B-Instruct-abliterated.mmproj-f16.gguf https://huggingface.co/Phil2Sat/Qwen-Image-Edit-Rapid-AIO-GGUF/resolve/main/Qwen2.5-VL-7B-Instruct-abliterated/Qwen2.5-VL-7B-Instruct-abliterated.mmproj-f16.gguf' >&2
     echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/diffusion_models/qwen-rapid-nsfw-v5.3-Q6_K.gguf https://huggingface.co/Phil2Sat/Qwen-Image-Edit-Rapid-AIO-GGUF/resolve/main/v53/qwen-rapid-nsfw-v5.3-Q6_K.gguf' >&2
     echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/vae/qwen_image_vae.safetensors https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors' >&2
-    echo "worker-comfyui: See PLAN.md §3 or docs/network-volumes.md" >&2
+    echo "worker-comfyui: See PLAN.md -3 or docs/network-volumes.md" >&2
     echo "worker-comfyui: Continuing anyway (ComfyUI will fail to find those models) ..." >&2
   else
-    echo "worker-comfyui: FAST volume check OK — PHIL Rapid-AIO GGUFs present on /runpod-volume"
+    echo "worker-comfyui: FAST volume check OK - PHIL Rapid-AIO GGUFs present on /runpod-volume"
     ls -lh /runpod-volume/models/text_encoders/Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf \
            /runpod-volume/models/text_encoders/Qwen2.5-VL-7B-Instruct-abliterated.mmproj-f16.gguf \
            /runpod-volume/models/diffusion_models/qwen-rapid-nsfw-v5.3-Q6_K.gguf \
@@ -103,14 +103,14 @@ if [ "${USE_NETWORK_VOLUME:-true}" = "true" ]; then
   fi
   # 1b) nodes_qwen patch check
   if grep -q "TextEncodeQwenImageEditPlus" /comfyui/comfy_extras/nodes_qwen.py 2>/dev/null; then
-    echo "worker-comfyui: nodes_qwen.py check OK — TextEncodeQwenImageEditPlus present (Phr00t v2 patch)"
+    echo "worker-comfyui: nodes_qwen.py check OK - TextEncodeQwenImageEditPlus present (Phr00t v2 patch)"
   else
-    echo "worker-comfyui: FATAL — /comfyui/comfy_extras/nodes_qwen.py missing TextEncodeQwenImageEditPlus (patch not applied, build stale)" >&2
+    echo "worker-comfyui: FATAL - /comfyui/comfy_extras/nodes_qwen.py missing TextEncodeQwenImageEditPlus (patch not applied, build stale)" >&2
   fi
 
   # 2) Verify extra_model_paths.yaml is baked where ComfyUI expects it
   if [ ! -f /comfyui/extra_model_paths.yaml ]; then
-    echo "worker-comfyui: FATAL — /comfyui/extra_model_paths.yaml missing (build bug, volume won't be scanned)." >&2
+    echo "worker-comfyui: FATAL - /comfyui/extra_model_paths.yaml missing (build bug, volume won't be scanned)." >&2
   else
     echo "worker-comfyui: extra_model_paths.yaml present:"; sed 's/^/worker-comfyui:   /' /comfyui/extra_model_paths.yaml 2>&1
   fi
@@ -119,10 +119,10 @@ if [ "${USE_NETWORK_VOLUME:-true}" = "true" ]; then
   if python3 -c "import importlib.util; exit(0 if importlib.util.find_spec('gguf') else 1)" 2>/dev/null; then
     echo "worker-comfyui: gguf Python package OK ($(python3 -c 'import gguf; print(gguf.__version__)' 2>&1))"
   else
-    echo "worker-comfyui: WARNING — gguf pip package not importable (ComfyUI-GGUF nodes will fail to import)." >&2
+    echo "worker-comfyui: WARNING - gguf pip package not importable (ComfyUI-GGUF nodes will fail to import)." >&2
   fi
   if [ ! -d /comfyui/custom_nodes/ComfyUI-GGUF ]; then
-    echo "worker-comfyui: WARNING — /comfyui/custom_nodes/ComfyUI-GGUF missing (UnetLoaderGGUF/CLIPLoaderGGUF won't exist, lists will be empty)." >&2
+    echo "worker-comfyui: WARNING - /comfyui/custom_nodes/ComfyUI-GGUF missing (UnetLoaderGGUF/CLIPLoaderGGUF won't exist, lists will be empty)." >&2
     echo "worker-comfyui: Check Dockerfile GGUF install step." >&2
   else
     echo "worker-comfyui: ComfyUI-GGUF nodes present at /comfyui/custom_nodes/ComfyUI-GGUF"
