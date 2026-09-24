@@ -3,7 +3,7 @@ variable "DOCKERHUB_REPO" {
 }
 
 variable "DOCKERHUB_IMG" {
-  default = "darkcoal-qwen-fast"
+  default = "darkcoal-qwen-2.1"
 }
 
 variable "RELEASE_VERSION" {
@@ -11,7 +11,7 @@ variable "RELEASE_VERSION" {
 }
 
 variable "COMFYUI_VERSION" {
-  default = "0.29.0"
+  default = "0.3.43"
 }
 
 # Global defaults — must match Dockerfile ARG defaults (12.6.3 / cu126, driver >=560)
@@ -36,7 +36,7 @@ variable "HUGGINGFACE_ACCESS_TOKEN" {
 }
 
 group "default" {
-  targets = ["qwen-image-edit"]
+  targets = ["qwen-2.1"]
 }
 
 # Convenience group that still builds every upstream variant if needed
@@ -190,6 +190,23 @@ target "illustrious" {
     MODEL_TYPE = "illustrious"
   }
   tags = ["${DOCKERHUB_REPO}/${DOCKERHUB_IMG}:${RELEASE_VERSION}-illustrious", "${DOCKERHUB_REPO}/${DOCKERHUB_IMG}:latest"]
+  inherits = ["base"]
+}
+
+target "qwen-2.1" {
+  context = "."
+  dockerfile = "Dockerfile"
+  target = "final"
+  platforms = ["linux/amd64"]
+  args = {
+    BASE_IMAGE = "${BASE_IMAGE}"
+    COMFYUI_VERSION = "${COMFYUI_VERSION}"
+    CUDA_VERSION_FOR_COMFY = "${CUDA_VERSION_FOR_COMFY}"
+    ENABLE_PYTORCH_UPGRADE = "${ENABLE_PYTORCH_UPGRADE}"
+    PYTORCH_INDEX_URL = "${PYTORCH_INDEX_URL}"
+    MODEL_TYPE = "qwen-2.1"
+  }
+  tags = ["${DOCKERHUB_REPO}/${DOCKERHUB_IMG}:${RELEASE_VERSION}", "${DOCKERHUB_REPO}/${DOCKERHUB_IMG}:latest"]
   inherits = ["base"]
 }
 

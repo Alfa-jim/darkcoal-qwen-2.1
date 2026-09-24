@@ -12,9 +12,9 @@ runpod_worker_comfy:
   unet: models/unet/
   text_encoders: models/text_encoders/
   diffusion_models: models/diffusion_models/
-  # Explicit GGUF keys — ComfyUI-GGUF registers these as synthetic aliases
-  # (unet_gguf -> diffusion_models/unet, clip_gguf -> text_encoders/clip)
-  # with a ".gguf"-only extension filter. Without explicit entries the
-  # volume path may miss the .gguf filter if node import order shifts.
+  # Qwen 2.1 explicit GGUF aliases (synthetic, gguf-filtered) + diffusers raw
   unet_gguf: models/diffusion_models/
   clip_gguf: models/text_encoders/
+  # diffusers raw layout (transformer/text_encoder subdirs under volume)
+  transformer: models/diffusion_models/
+  vae_gguf: models/vae/

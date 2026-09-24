@@ -5,7 +5,8 @@ ARG BASE_IMAGE=nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
 FROM ${BASE_IMAGE} AS base
 
 # Build arguments for this stage with sensible defaults for standalone builds
-ARG COMFYUI_VERSION=0.29.0
+# Qwen 2.1 requires ComfyUI >=0.3.43 (QwenImage21 nodes) + diffusers>=0.37 + transformers>=5.17
+ARG COMFYUI_VERSION=0.3.43
 ARG CUDA_VERSION_FOR_COMFY=12.6
 ARG ENABLE_PYTORCH_UPGRADE=true
 ARG PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu126
@@ -90,7 +91,7 @@ RUN uv pip install torch==2.11.0 torchvision==0.26.0 torchaudio==2.11.0 \
     && for r in /comfyui/custom_nodes/*/requirements.txt; do \
          [ -f "$r" ] && uv pip install -r "$r" || true; \
        done \
-    && uv pip install "transformers>=4.50.3,<5" "huggingface-hub<1.0"
+    && uv pip install "transformers>=5.17,<6" "huggingface-hub<1.0" "diffusers>=0.37.0" accelerate safetensors
 
 # ComfyUI-GGUF custom nodes for UnetLoaderGGUF / CLIPLoaderGGUF (qwen-image-edit GGUF)
 # Install order matters: gguf pip pkg first so node import doesn't fail on cold import.
@@ -154,7 +155,7 @@ FROM base AS downloader
 
 ARG HUGGINGFACE_ACCESS_TOKEN
 # Set default model type â€” qwen-image-edit supports both text2img and image edit
-ARG MODEL_TYPE=qwen-image-edit
+ARG MODEL_TYPE=qwen-2.1
 
 # Change working directory to ComfyUI
 WORKDIR /comfyui
@@ -233,7 +234,7 @@ ARG USE_NETWORK_VOLUME=true
 FROM downloader AS qwen-downloader
 
 ARG HUGGINGFACE_ACCESS_TOKEN
-ARG MODEL_TYPE=qwen-image-edit
+ARG MODEL_TYPE=qwen-2.1
 ARG USE_NETWORK_VOLUME
 
 WORKDIR /comfyui
@@ -264,5 +265,14 @@ RUN if [ "$MODEL_TYPE" = "qwen-image-edit" ] && [ "$USE_NETWORK_VOLUME" != "true
       echo "FAST: skipping mmproj bake (volume-native)."; \
     fi
 
+RUN if [ "$MODEL_TYPE" = "qwen-2.1" ] && [ "$USE_NETWORK_VOLUME" != "true" ]; then \
+      echo "BAKED qwen-2.1 requested but volume-native is recommended — skipping heavy bake, see volume populate script"; \
+    elif [ "$MODEL_TYPE" = "qwen-2.1" ]; then \
+      echo "FAST: qwen-2.1 volume-native — transformer 2 shards + text_encoder 4 shards + vae live on /runpod-volume (33GB). Baked VAE stub present."; df -h; ls -R models || true; \
+    fi
+
+RUN if [ "$MODEL_TYPE" = "qwen-2.1" ]; then \
+      echo "FAST: qwen-2.1 mmproj/text_encoder handled via volume (Qwen3-VL)."; \
+    fi
 FROM qwen-downloader AS final
 RUN echo "=== FINAL (FAST: VAE+LoRA baked, GGUFs on /runpod-volume) ===" && ls -lh /comfyui/models/text_encoders/ /comfyui/models/diffusion_models/ /comfyui/models/vae/ /comfyui/models/loras/ 2>&1; du -sh /comfyui/models/* 2>&1; echo "ComfyUI-GGUF check:" && ls -ld /comfyui/custom_nodes/ComfyUI-GGUF 2>&1; echo "PyTorch check:" && uv run python -c "import torch; print(torch.__version__, torch.version.cuda)" 2>&1 | head -5

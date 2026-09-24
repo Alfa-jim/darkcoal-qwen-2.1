@@ -2,28 +2,28 @@
   "input": {
     "images": [{ "name": "reference.png", "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAMklEQVR4nGI5ZdXAQEvARFPTRy0YtWDUglELRi0YtWDUAioCQAAAAP//E24Bx3jUKuYAAAAASUVORK5CYII=" }],
     "workflow": {
-      "10": { "inputs": { "vae_name": "qwen_image_vae.safetensors" }, "class_type": "VAELoader", "_meta": { "title": "Load VAE" } },
-      "12": { "inputs": { "unet_name": "qwen-rapid-nsfw-v5.3-Q6_K.gguf" }, "class_type": "UnetLoaderGGUF", "_meta": { "title": "Load Diffusion Model GGUF (Rapid-AIO v5.3 NSFW)" } },
-      "61": { "inputs": { "clip_name": "Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf", "type": "qwen_image", "device": "default" }, "class_type": "CLIPLoaderGGUF", "_meta": { "title": "Load CLIP GGUF (abliterated)" } },
-      "41": { "inputs": { "image": "reference.png" }, "class_type": "LoadImage", "_meta": { "title": "LoadImage ref" } },
-      "27": { "inputs": { "width": 832, "height": 1216, "batch_size": 1 }, "class_type": "EmptySD3LatentImage", "_meta": { "title": "EmptySD3LatentImage (sizing for Plus node)" } },
+      "10": { "inputs": { "vae_name": "qwen_image_2.1_vae.safetensors" }, "class_type": "VAELoader", "_meta": { "title": "Load VAE Qwen 2.1" } },
+      "12": { "inputs": { "unet_name": "qwen-image-2.1-uncensored-Q4_K_M.gguf" }, "class_type": "UnetLoaderGGUF", "_meta": { "title": "Load DiT GGUF Qwen2.1" } },
+      "61": { "inputs": { "clip_name": "qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf", "type": "qwen_image", "device": "default" }, "class_type": "CLIPLoaderGGUF", "_meta": { "title": "CLIP Qwen3-VL" } },
+      "41": { "inputs": { "image": "reference.png" }, "class_type": "LoadImage", "_meta": { "title": "LoadImage ref1" } },
+      "27": { "inputs": { "width": 2048, "height": 2048, "batch_size": 1 }, "class_type": "EmptySD3LatentImage", "_meta": { "title": "EmptySD3LatentImage sizing" } },
       "66": { "inputs": { "shift": 3.1, "model": ["12", 0] }, "class_type": "ModelSamplingAuraFlow", "_meta": { "title": "ModelSamplingAuraFlow" } },
       "68": {
         "inputs": {
-          "prompt": "keep the same girl, same face and outfit and art style, now she offers a box of chocolates with both hands toward viewer, everything else exactly the same, highly detailed, nsfw uncensored",
+          "prompt": "Change the background to a sunset beach, keep the same person, same face and outfit, highly detailed, preserve identity",
           "clip": ["61", 0],
           "vae": ["10", 0],
           "image1": ["41", 0],
-          "latent": ["27", 0]
+          "target_latent": ["27", 0]
         },
         "class_type": "TextEncodeQwenImageEditPlus",
-        "_meta": { "title": "TextEncodeQwenImageEditPlus (Rapid fixed node)" }
+        "_meta": { "title": "TextEncodeQwenImageEditPlus (supports up to 10 refs in 2.1, RGBA via prompt)" }
       },
-      "69": { "inputs": { "text": " ", "clip": ["61", 0] }, "class_type": "CLIPTextEncode", "_meta": { "title": "CLIPTextEncode negative (empty)" } },
+      "69": { "inputs": { "text": " ", "clip": ["61", 0] }, "class_type": "CLIPTextEncode", "_meta": { "title": "Negative" } },
       "31": {
-        "inputs": { "seed": 42, "steps": 4, "cfg": 1.0, "sampler_name": "euler_ancestral", "scheduler": "beta", "denoise": 1.0, "model": ["66", 0], "positive": ["68", 0], "negative": ["69", 0], "latent_image": ["27", 0] },
+        "inputs": { "seed": 42, "steps": 40, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0, "model": ["66", 0], "positive": ["68", 0], "negative": ["69", 0], "latent_image": ["27", 0] },
         "class_type": "KSampler",
-        "_meta": { "title": "KSampler (Rapid 4-step edit)" }
+        "_meta": { "title": "KSampler 40-step edit" }
       },
       "8": { "inputs": { "samples": ["31", 0], "vae": ["10", 0] }, "class_type": "VAEDecode", "_meta": { "title": "VAE Decode" } },
       "9": { "inputs": { "filename_prefix": "ComfyUI", "images": ["8", 0] }, "class_type": "SaveImage", "_meta": { "title": "Save Image" } }

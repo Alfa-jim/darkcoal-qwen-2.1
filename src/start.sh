@@ -65,7 +65,7 @@ if [ "${USE_NETWORK_VOLUME:-true}" = "true" ]; then
   # 0) Is the volume actually attached? /runpod-volume missing => endpoint misconfigured.
   if [ ! -d /runpod-volume ]; then
     echo "worker-comfyui: FATAL — /runpod-volume does not exist (network volume NOT attached to this endpoint)." >&2
-    echo "worker-comfyui: Fix: RunPod Console → Serverless → your endpoint → Manage → Edit → Advanced → Network Volume → select qwen-fast-models → Save." >&2
+    echo "worker-comfyui: Fix: RunPod Console → Serverless → your endpoint → Manage → Edit → Advanced → Network Volume → select qwen-2.1-models → Save." >&2
     echo "worker-comfyui: Continuing anyway so diagnostics still run, but every GGUF request will 400 until the volume is attached." >&2
   elif ! mount 2>/dev/null | grep -q " /runpod-volume " && ! df /runpod-volume >/dev/null 2>&1; then
     echo "worker-comfyui: WARNING — /runpod-volume exists but does not look like a mount (may be empty container dir)." >&2

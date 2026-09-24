@@ -2,44 +2,44 @@
   "input": {
     "workflow": {
       "10": {
-        "inputs": { "vae_name": "qwen_image_vae.safetensors" },
+        "inputs": { "vae_name": "qwen_image_2.1_vae.safetensors" },
         "class_type": "VAELoader",
-        "_meta": { "title": "Load VAE" }
+        "_meta": { "title": "Load VAE (Qwen 2.1)" }
       },
       "12": {
-        "inputs": { "unet_name": "qwen-rapid-nsfw-v5.3-Q6_K.gguf" },
+        "inputs": { "unet_name": "qwen-image-2.1-uncensored-Q4_K_M.gguf", "type": "qwen2.1" },
         "class_type": "UnetLoaderGGUF",
-        "_meta": { "title": "Load Diffusion Model GGUF (Rapid-AIO v5.3 NSFW)" }
+        "_meta": { "title": "Load Diffusion Transformer GGUF (Qwen 2.1 7B) - or use diffusion_pytorch_model.safetensors via UNETLoader" }
       },
       "61": {
-        "inputs": { "clip_name": "Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf", "type": "qwen_image", "device": "default" },
+        "inputs": { "clip_name": "qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf", "type": "qwen_image", "device": "default" },
         "class_type": "CLIPLoaderGGUF",
-        "_meta": { "title": "Load CLIP GGUF (abliterated)" }
+        "_meta": { "title": "Load Qwen3-VL CLIP GGUF (2.1)" }
       },
       "66": {
         "inputs": { "shift": 3.1, "model": ["12", 0] },
         "class_type": "ModelSamplingAuraFlow",
-        "_meta": { "title": "ModelSamplingAuraFlow" }
+        "_meta": { "title": "ModelSamplingAuraFlow shift 3.1" }
       },
       "6": {
-        "inputs": { "text": "nsfw, nude anime girl with long blonde hair, blue eyes, massive fluffy fennec ears, big fluffy tail, highly detailed anime style, uncensored, masterpiece", "clip": ["61", 0] },
+        "inputs": { "text": "A neon shop sign that reads \"QWEN IMAGE 2.1\", rainy night, reflections on wet pavement, highly detailed, 2048x2048", "clip": ["61", 0] },
         "class_type": "CLIPTextEncode",
-        "_meta": { "title": "CLIP Text Encode (Positive)" }
+        "_meta": { "title": "CLIP Text Encode (Qwen 2.1 T2I)" }
       },
       "7": {
         "inputs": { "text": " ", "clip": ["61", 0] },
         "class_type": "CLIPTextEncode",
-        "_meta": { "title": "CLIP Text Encode (Negative)" }
+        "_meta": { "title": "Negative (empty for Qwen)" }
       },
       "27": {
-        "inputs": { "width": 832, "height": 1216, "batch_size": 1 },
+        "inputs": { "width": 2048, "height": 2048, "batch_size": 1 },
         "class_type": "EmptySD3LatentImage",
-        "_meta": { "title": "EmptySD3LatentImage" }
+        "_meta": { "title": "EmptySD3LatentImage 1:1 2048" }
       },
       "3": {
-        "inputs": { "seed": 42, "steps": 4, "cfg": 1.0, "sampler_name": "euler_ancestral", "scheduler": "beta", "denoise": 1.0, "model": ["66", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["27", 0] },
+        "inputs": { "seed": 42, "steps": 40, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0, "model": ["66", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["27", 0] },
         "class_type": "KSampler",
-        "_meta": { "title": "KSampler (Rapid 4-step)" }
+        "_meta": { "title": "KSampler 40-step Qwen2.1 flow" }
       },
       "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 0] }, "class_type": "VAEDecode", "_meta": { "title": "VAE Decode" } },
       "9": { "inputs": { "filename_prefix": "ComfyUI", "images": ["8", 0] }, "class_type": "SaveImage", "_meta": { "title": "Save Image" } }
