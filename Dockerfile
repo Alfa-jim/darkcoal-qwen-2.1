@@ -85,13 +85,11 @@ RUN if [ "$ENABLE_PYTORCH_UPGRADE" = "true" ]; then \
 # Passing --index-url via comfy install alone doesn't pin torch during the
 # `uv pip install -r requirements.txt` step - ComfyUI's bare `torch` pulls
 # cu13 from PyPI (needs driver >=580) which fails cuda init on 12.6 hosts.
-RUN uv pip install torch torchvision torchaudio \
-      --index-url https://download.pytorch.org/whl/cu126 \
-    && uv pip install -r /comfyui/requirements.txt \
-    && for r in /comfyui/custom_nodes/*/requirements.txt; do \
-         [ -f "$r" ] && uv pip install -r "$r" || true; \
-       done \
-    && uv pip install --upgrade "transformers>=5.17,<6" "huggingface-hub<1.0" "diffusers>=0.37.0" accelerate safetensors
+RUN uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+RUN uv pip install -r /comfyui/requirements.txt
+RUN for r in /comfyui/custom_nodes/*/requirements.txt; do [ -f "$r" ] && uv pip install -r "$r" || true; done
+# Re-pin torch to cu126 after requirements.txt (which pulls cpu torch), then upgrade transformers/diffusers for Qwen 2.1
+RUN uv pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126 && uv pip install --upgrade "transformers>=5.17,<6" "diffusers>=0.37.0" accelerate safetensors "huggingface-hub>=0.34"
 
 # ComfyUI-GGUF custom nodes for UnetLoaderGGUF / CLIPLoaderGGUF (qwen-image-edit GGUF)
 # Install order matters: gguf pip pkg first so node import doesn't fail on cold import.
