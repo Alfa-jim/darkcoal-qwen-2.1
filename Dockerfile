@@ -21,9 +21,11 @@ ENV PYTHONUNBUFFERED=1
 ENV CMAKE_BUILD_PARALLEL_LEVEL=8
 
 # Install Python, git and other necessary tools (retry apt for transient mirror failures)
+# build-essential + gcc needed for Triton JIT (Qwen 2.1 CLIPTextEncode -> triton)
 RUN (apt-get update || (sleep 5 && apt-get update) || (sleep 10 && apt-get update)) && apt-get install -y --fix-missing \
     python3.12 \
     python3.12-venv \
+    python3.12-dev \
     git \
     wget \
     curl \
@@ -34,6 +36,9 @@ RUN (apt-get update || (sleep 5 && apt-get update) || (sleep 10 && apt-get updat
     libxrender1 \
     ffmpeg \
     openssh-server \
+    build-essential \
+    gcc \
+    g++ \
     && ln -sf /usr/bin/python3.12 /usr/bin/python \
     && ln -sf /usr/bin/pip3 /usr/bin/pip
 
