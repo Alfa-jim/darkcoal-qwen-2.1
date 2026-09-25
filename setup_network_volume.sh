@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# setup_network_volume.sh - Populate RunPod Network Volume for darkcoal-qwen-2.1 (Q4 uncensored)
+# setup_network_volume.sh - Populate RunPod Network Volume for darkcoal-qwen-2.1 (Qwen 2.1 GGUF)
+# Source of truth: https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF
 # Place in project root. On Pod: volume at /workspace  On Serverless: /runpod-volume
 # RunPod mounts the same Network Volume at both paths - this script auto-detects.
 #
@@ -32,8 +33,6 @@ CLEAN=0; VERIFY_ONLY=0
 for a in "$@"; do case "$a" in --clean) CLEAN=1;; --verify) VERIFY_ONLY=1;; --help|-h) echo "Usage: $0 [--clean] [--verify]"; exit 0;; esac; done
 
 # -- Volume detection (Pod vs Serverless) -------------------------------------
-# RunPod docs: Pod = /workspace  Serverless = /runpod-volume  (same underlying volume)
-# This script runs on a Pod to populate - but also works if you accidentally run it on a worker.
 if [ -d "/runpod-volume" ]; then
   VOL_BASE="/runpod-volume"
 elif [ -d "/workspace" ]; then
@@ -48,15 +47,15 @@ TE_DIR="$MODELS_BASE/text_encoders"
 DM_DIR="$MODELS_BASE/diffusion_models"
 LORA_DIR="$MODELS_BASE/loras"
 
-echo -e "${BOLD}darkcoal-qwen-2.1 - Network Volume Setup (Q4 uncensored)${RESET}"
+echo -e "${BOLD}darkcoal-qwen-2.1 - Network Volume Setup (Qwen 2.1 GGUF - abenzerps UC + pottokao Heretic)${RESET}"
 echo -e "${DIM}Volume: $VOL_BASE  |  Models: $MODELS_BASE${RESET}"
 divider
-echo -e "${DIM}Q4 uncensored ~10GB total (3.8GB DiT + 4GB CLIP + 1.35GB mmproj + 0.8GB VAE)${RESET}"
-echo -e "${DIM}Official safetensors 33GB available as fallback - see notes at end${RESET}"
+echo -e "${DIM}Docs: https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF${RESET}"
+echo -e "${DIM}Default: DiT Q4_K_M UC 4.6GB + Heretic Q4_K_M 4GB + mmproj 1.35GB + VAE bf16 0.68GB = ~10.6GB${RESET}"
+echo -e "${DIM}Alt: qwen3vl_8b_int8_convrot.safetensors (9.35GB, Comfy-Org, censored base) via CLIPLoader${RESET}"
 
 # -- HF token (optional, for gated repos) ---------------------------------------
-# New sources (abenzerps + pottokao) are PUBLIC, no token needed.
-# If you use a gated repo, export HF_TOKEN=hf_xxx before running.
+# abenzerps + pottokao + Comfy-Org are PUBLIC, no token needed.
 if [ -n "${HF_TOKEN:-}" ]; then
   info "Using HF_TOKEN (auth enabled)"
   AUTH_ARGS=(-H "Authorization: Bearer $HF_TOKEN")
@@ -65,23 +64,29 @@ else
 fi
 
 # -- Config -------------------------------------------------------------------
-# PUBLIC sources (no token): abenzerps DiT + pottokao Heretic text encoder (Q4 uncensored/abliterated)
-# arudradey was deleted (404) - switched to abenzerps/pottokao 2026-09-24 (575k downloads)
-# Filenames are the ones test_input.json expects:
-#   text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf
-#   text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf
-#   diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf
-#   vae/qwen_image_vae.safetensors (Comfy converted, ~300MB, not diffusers raw 1.3GB)
-VAE_URL="https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors"
+# Filenames match test_input.json expectations (plus canonical HF names as aliases):
+#   diffusion_models/qwen-image-2.1-UC-Q4_K_M.gguf           (HF canonical, 4.60GB) + alias qwen-image-2.1-uncensored-Q4_K_M.gguf
+#   text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf  (Heretic Q4_K_M, 4GB)
+#   text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf (1.35GB)
+#   vae/qwen_image_2.1_vae_bf16.safetensors                  (HF canonical, 676MB) + alias qwen_image_vae.safetensors
+# Optional: text_encoders/qwen3vl_8b_int8_convrot.safetensors (HF Comfy-Org, 9.35GB, lower VRAM but censored)
+VAE_URL="https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors"
+# Keep old Comfy converted alias for backward compat (if needed, we symlink)
+VAE_ALIAS="qwen_image_vae.safetensors"
 TE_Q4_URL="https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/qwen3vl_8b_heretic-Q4_K_M.gguf"
 MMPROJ_URL="https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/mmproj-qwen3vl_8b_heretic-f16.gguf"
 DM_Q4_URL="https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q4_K_M.gguf"
+# Optional Heretic alt quant examples (uncomment to fetch):
+# DM_Q6_URL="https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q6_K.gguf"
+# DM_Q8_URL="https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q8_0.gguf"
+TE_INT8_URL="https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors"
 
 # Minimum valid sizes (bytes) - catches HTML 404 pages (7KB) and truncated files
-VAE_MIN=150000000
+VAE_MIN=500000000
 TE_MIN=3000000000
 MMPROJ_MIN=1000000000
-DM_MIN=3000000000
+DM_MIN=3500000000
+TE_INT8_MIN=8000000000
 
 # -- Dirs ---------------------------------------------------------------------
 step "1/4 - Preparing directories"
@@ -94,8 +99,12 @@ if [ "$CLEAN" = "1" ]; then
   step "CLEAN - removing existing Qwen 2.1 files"
   rm -f "$TE_DIR/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf" \
         "$TE_DIR/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf" \
+        "$DM_DIR/qwen-image-2.1-UC-Q4_K_M.gguf" \
         "$DM_DIR/qwen-image-2.1-uncensored-Q4_K_M.gguf" \
-        "$VAE_DIR/qwen_image_vae.safetensors" 2>&1 | sed 's/^/  /' || true
+        "$VAE_DIR/qwen_image_2.1_vae_bf16.safetensors" \
+        "$VAE_DIR/qwen_image_vae.safetensors" \
+        "$TE_DIR/qwen3vl_8b_heretic-Q4_K_M.gguf" \
+        "$TE_DIR/mmproj-qwen3vl_8b_heretic-f16.gguf" 2>&1 | sed 's/^/  /' || true
   ok "Cleaned - will re-download"
 fi
 
@@ -148,25 +157,43 @@ download_one() {
 }
 
 # -- Download all -------------------------------------------------------------
-step "2/4 - Downloading Q4 uncensored (safe resume, 5 retries)"
+step "2/4 - Downloading Qwen 2.1 GGUF (abenzerps + pottokao, safe resume, 5 retries)"
 FAIL=0
-download_one "$VAE_DIR/qwen_image_vae.safetensors" "$VAE_URL" "$VAE_MIN" || FAIL=$((FAIL+1))
+# VAE - canonical bf16 (676MB) — HF table: vae/qwen_image_2.1_vae_bf16.safetensors
+download_one "$VAE_DIR/qwen_image_2.1_vae_bf16.safetensors" "$VAE_URL" "$VAE_MIN" || FAIL=$((FAIL+1))
 echo ""
+# Back-compat alias: qwen_image_vae.safetensors -> qwen_image_2.1_vae_bf16.safetensors
+if [ -f "$VAE_DIR/qwen_image_2.1_vae_bf16.safetensors" ] && [ ! -f "$VAE_DIR/$VAE_ALIAS" ]; then
+  ln -sf qwen_image_2.1_vae_bf16.safetensors "$VAE_DIR/$VAE_ALIAS" && info "Created VAE alias $VAE_ALIAS -> qwen_image_2.1_vae_bf16.safetensors"
+fi
+echo ""
+# Heretic text encoder GGUF (uncensored)
 download_one "$TE_DIR/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf" "$TE_Q4_URL" "$TE_MIN" || FAIL=$((FAIL+1))
 echo ""
 download_one "$TE_DIR/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf" "$MMPROJ_URL" "$MMPROJ_MIN" || FAIL=$((FAIL+1))
 echo ""
-download_one "$DM_DIR/qwen-image-2.1-uncensored-Q4_K_M.gguf" "$DM_Q4_URL" "$DM_MIN" || FAIL=$((FAIL+1))
+# DiT GGUF - canonical name is UC-Q4_K_M (4.60GB per HF table)
+download_one "$DM_DIR/qwen-image-2.1-UC-Q4_K_M.gguf" "$DM_Q4_URL" "$DM_MIN" || FAIL=$((FAIL+1))
+echo ""
+# Back-compat alias: qwen-image-2.1-uncensored-Q4_K_M.gguf -> qwen-image-2.1-UC-Q4_K_M.gguf (playground/test_input legacy name)
+if [ -f "$DM_DIR/qwen-image-2.1-UC-Q4_K_M.gguf" ] && [ ! -f "$DM_DIR/qwen-image-2.1-uncensored-Q4_K_M.gguf" ]; then
+  ln -sf qwen-image-2.1-UC-Q4_K_M.gguf "$DM_DIR/qwen-image-2.1-uncensored-Q4_K_M.gguf" && info "Created alias qwen-image-2.1-uncensored-Q4_K_M.gguf -> qwen-image-2.1-UC-Q4_K_M.gguf"
+fi
+echo ""
+# Optional: Comfy-Org int8 text encoder (9.35GB) — uncomment if you want HF recommended lower-VRAM path
+# download_one "$TE_DIR/qwen3vl_8b_int8_convrot.safetensors" "$TE_INT8_URL" "$TE_INT8_MIN" || FAIL=$((FAIL+1))
+echo "Tip: For HF recommended int8 path (9GB safetensor, swap clip_name to qwen3vl_8b_int8_convrot.safetensors via CLIPLoader):"
+echo -e "  ${DIM}curl -L -C - -o $TE_DIR/qwen3vl_8b_int8_convrot.safetensors $TE_INT8_URL${RESET}"
 echo ""
 
 # -- Verify -------------------------------------------------------------------
 step "3/4 - Verifying"
 divider
 ALL_OK=1
-for entry in "$VAE_DIR/qwen_image_vae.safetensors:$VAE_MIN" \
+for entry in "$VAE_DIR/qwen_image_2.1_vae_bf16.safetensors:$VAE_MIN" \
              "$TE_DIR/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf:$TE_MIN" \
              "$TE_DIR/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf:$MMPROJ_MIN" \
-             "$DM_DIR/qwen-image-2.1-uncensored-Q4_K_M.gguf:$DM_MIN"; do
+             "$DM_DIR/qwen-image-2.1-UC-Q4_K_M.gguf:$DM_MIN"; do
   dest="${entry%%:*}"
   min="${entry##*:}"
   name=$(basename "$dest")
@@ -185,6 +212,11 @@ for entry in "$VAE_DIR/qwen_image_vae.safetensors:$VAE_MIN" \
   fi
 done
 echo ""
+# Check aliases exist
+for a in "$VAE_DIR/$VAE_ALIAS" "$DM_DIR/qwen-image-2.1-uncensored-Q4_K_M.gguf"; do
+  if [ -L "$a" ] || [ -f "$a" ]; then echo -e "  ${GREEN}[OK]${RESET} alias $(basename $a) -> $(readlink $a 2>/dev/null || echo ok)"; else echo -e "  ${YELLOW}[WARN]${RESET} alias $(basename $a) missing (optional)"; fi
+done
+echo ""
 du -sh "$MODELS_BASE"/* 2>&1 | sed "s/^/  /" || true
 echo ""
 df -h "$VOL_BASE" 2>&1 | sed 's/^/  /' || true
@@ -199,14 +231,10 @@ step "4/4 - Summary"
 if [ "$FAIL" -gt 0 ] || [ "$ALL_OK" != "1" ]; then
   err "Some files failed ($FAIL) - re-run ./setup_network_volume.sh to resume (curl -C -)"
   echo -e "\n${YELLOW}Tips:${RESET}"
-  if [ -z "${HF_TOKEN:-}" ]; then
-    echo -e "  * ${RED}GATED REPO:${RESET} arudradey needs HF_TOKEN - create at https://huggingface.co/settings/tokens"
-    echo -e "    ${DIM}export HF_TOKEN=hf_xxx && rm /workspace/models/text_encoders/*.gguf /workspace/models/diffusion_models/qwen-image-2.1-*.gguf && ./setup_network_volume.sh${RESET}"
-  fi
   echo -e "  * Truncated mmproj at 7.7MB = HTML 404 - delete and re-run:"
   echo -e "    ${DIM}rm $TE_DIR/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf && ./setup_network_volume.sh${RESET}"
   echo -e "  * Check volume mount: ${DIM}df -h $VOL_BASE && ls -lh $MODELS_BASE/*/*${RESET}"
-  echo -e "  * Official 33GB safetensors fallback: ${DIM}huggingface-cli download Qwen/Qwen-Image-2.1 --local-dir /tmp/q21 --include 'vae/*' 'transformer/*' 'text_encoder/*'${RESET}"
+  echo -e "  * HF int8 fallback: ${DIM}curl -L -C - -o $TE_DIR/qwen3vl_8b_int8_convrot.safetensors $TE_INT8_URL${RESET}"
   echo -e "  * Heretic = uncensored/abliterated (pottokao + abenzerps, public, no token)"
   exit 1
 else
@@ -217,8 +245,10 @@ else
   echo -e "  2. Deploy ${CYAN}ghcr.io/alfa-jim/darkcoal-qwen-2.1:latest${RESET} (MODEL_TYPE=qwen-2.1, USE_NETWORK_VOLUME=true)"
   echo -e "  3. Test: ${DIM}curl -X POST https://api.runpod.ai/v2/<id>/runsync -H 'Authorization: Bearer \$KEY' -d @test_input.json${RESET}"
   echo ""
-  echo -e "${DIM}Extra: For Q6_K (~5.5GB) or Q8_0 (~8GB) just change unet_name in workflow - same volume, swap file via:${RESET}"
-  echo -e "${DIM}  curl -L -C - -o $DM_DIR/qwen-image-2.1-uncensored-Q8_0.gguf https://huggingface.co/arudradey/qwen-image-2.1-uncensored-gguf/resolve/main/qwen-image-2.1-uncensored-Q8_0.gguf${RESET}"
+  echo -e "${DIM}Extra: For Q6_K (5.88GB) or Q8_0 (7.59GB) just change unet_name in workflow - same volume, swap file via:${RESET}"
+  echo -e "${DIM}  curl -L -C - -o $DM_DIR/qwen-image-2.1-UC-Q6_K.gguf https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q6_K.gguf${RESET}"
+  echo -e "${DIM}  curl -L -C - -o $DM_DIR/qwen-image-2.1-UC-Q8_0.gguf https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q8_0.gguf${RESET}"
+  echo -e "${DIM}Workflow expects: text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf (Heretic) + diffusion_models/qwen-image-2.1-UC-Q4_K_M.gguf + vae/qwen_image_2.1_vae_bf16.safetensors${RESET}"
 fi
 divider
 echo -e "${DIM}RunPod note: /workspace (Pod) and /runpod-volume (Serverless) are same volume - this script auto-detects VOL_BASE${RESET}"

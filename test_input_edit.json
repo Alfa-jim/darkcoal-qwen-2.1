@@ -2,30 +2,44 @@
   "input": {
     "images": [{ "name": "reference.png", "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAMklEQVR4nGI5ZdXAQEvARFPTRy0YtWDUglELRi0YtWDUAioCQAAAAP//E24Bx3jUKuYAAAAASUVORK5CYII=" }],
     "workflow": {
-      "10": { "inputs": { "vae_name": "qwen_image_vae.safetensors" }, "class_type": "VAELoader", "_meta": { "title": "Load VAE Qwen 2.1 (Comfy converted)" } },
-      "12": { "inputs": { "unet_name": "qwen-image-2.1-uncensored-Q4_K_M.gguf" }, "class_type": "UnetLoaderGGUF", "_meta": { "title": "Load DiT GGUF Qwen2.1" } },
-      "61": { "inputs": { "clip_name": "qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf", "type": "stable_diffusion", "device": "default" }, "class_type": "CLIPLoaderGGUF", "_meta": { "title": "CLIP Qwen3-VL (fallback type)" } },
-      "41": { "inputs": { "image": "reference.png" }, "class_type": "LoadImage", "_meta": { "title": "LoadImage ref1" } },
-      "27": { "inputs": { "width": 2048, "height": 2048, "batch_size": 1 }, "class_type": "EmptySD3LatentImage", "_meta": { "title": "EmptySD3LatentImage sizing" } },
-      "66": { "inputs": { "shift": 3.1, "model": ["12", 0] }, "class_type": "ModelSamplingAuraFlow", "_meta": { "title": "ModelSamplingAuraFlow" } },
-      "68": {
+      "10": { "inputs": { "vae_name": "qwen_image_2.1_vae_bf16.safetensors" }, "class_type": "VAELoader", "_meta": { "title": "Load VAE Qwen 2.1 bf16" } },
+      "12": { "inputs": { "unet_name": "qwen-image-2.1-UC-Q4_K_M.gguf" }, "class_type": "UnetLoaderGGUF", "_meta": { "title": "Load DiT GGUF Qwen 2.1 UC Q4_K_M" } },
+      "53": { "inputs": { "clip_name": "qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf", "type": "qwen_image", "device": "default" }, "class_type": "CLIPLoaderGGUF", "_meta": { "title": "Load Qwen3-VL GGUF Heretic Q4_K_M (uncensored)" } },
+      "41": { "inputs": { "image": "reference.png" }, "class_type": "LoadImage", "_meta": { "title": "LoadImage ref1 (edit target, <image1>)" } },
+      "55": {
         "inputs": {
-          "prompt": "Change the background to a sunset beach, keep the same person, same face and outfit, highly detailed, preserve identity",
-          "clip": ["61", 0],
+          "clip": ["53", 0],
+          "prompt": "Change the background to a sunset beach, keep the same person, same face and outfit, highly detailed, preserve identity - reference <image1>",
+          "negative_prompt": "",
           "vae": ["10", 0],
-          "image1": ["41", 0],
-          "target_latent": ["27", 0]
+          "resolution": 1024,
+          "images": { "image_1": ["41", 0] }
         },
-        "class_type": "TextEncodeQwenImageEditPlus",
-        "_meta": { "title": "TextEncodeQwenImageEditPlus (supports up to 10 refs in 2.1, RGBA via prompt)" }
+        "class_type": "TextEncodeQwenImage21",
+        "_meta": { "title": "TextEncodeQwenImage21 (edit - 1 ref, RGBA via prompt)" }
       },
-      "69": { "inputs": { "text": " ", "clip": ["61", 0] }, "class_type": "CLIPTextEncode", "_meta": { "title": "Negative" } },
-      "31": {
-        "inputs": { "seed": 42, "steps": 40, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0, "model": ["66", 0], "positive": ["68", 0], "negative": ["69", 0], "latent_image": ["27", 0] },
+      "469": {
+        "inputs": { "model": ["12", 0], "device": "auto", "dtype": "default" },
+        "class_type": "QwenImage21Cache",
+        "_meta": { "title": "QwenImage21Cache (KV cache auto - optional but speeds edit)" }
+      },
+      "3": {
+        "inputs": {
+          "seed": 42,
+          "steps": 40,
+          "cfg": 1.0,
+          "sampler_name": "euler",
+          "scheduler": "simple",
+          "denoise": 1.0,
+          "model": ["469", 0],
+          "positive": ["55", 0],
+          "negative": ["55", 1],
+          "latent_image": ["55", 2]
+        },
         "class_type": "KSampler",
-        "_meta": { "title": "KSampler 40-step edit" }
+        "_meta": { "title": "KSampler 40-step edit (latent from TextEncodeQwenImage21, no EmptyLatentImage)" }
       },
-      "8": { "inputs": { "samples": ["31", 0], "vae": ["10", 0] }, "class_type": "VAEDecode", "_meta": { "title": "VAE Decode" } },
+      "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 0] }, "class_type": "VAEDecode", "_meta": { "title": "VAE Decode" } },
       "9": { "inputs": { "filename_prefix": "ComfyUI", "images": ["8", 0] }, "class_type": "SaveImage", "_meta": { "title": "Save Image" } }
     }
   }

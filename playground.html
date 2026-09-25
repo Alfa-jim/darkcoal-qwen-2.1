@@ -59,7 +59,7 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
 <body>
 <div class="topbar">
   <h1>darkcoal-qwen-2.1</h1>
-  <span class="badge">Qwen-Image-2.1 7B unified T2I+edit+RGBA Q4 uncensored (UC-Q4_K_M + Heretic Q4_K_M + mmproj-f16) · 40-step euler/simple cfg1 shift3.1 · /runpod-volume · ghcr.io/alfa-jim/darkcoal-qwen-2.1</span>
+  <span class="badge">Qwen-Image-2.1 7B unified T2I+edit+RGBA · 40-step euler/simple cfg1 · leejet/ComfyUI-GGUF + TextEncodeQwenImage21 · /runpod-volume · ghcr.io/alfa-jim/darkcoal-qwen-2.1</span>
   <input id="endpoint" type="text" value="" placeholder="RunPod endpoint URL (https://api.runpod.ai/v2/<endpoint-id>/runsync)"/>
   <input id="apikey" type="text" value="" placeholder="RunPod API key (rpa_...)"/>
   <button class="btn small ghost" onclick="toggleKeys()">hide keys</button>
@@ -70,9 +70,9 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
   <!-- LEFT: prompt + mode -->
   <div class="side">
     <div class="qwen-note">
-      <b>Qwen-Image-2.1 7B — unified T2I + edit + RGBA</b> — native <code>qwen-image-2.1-uncensored-Q4_K_M.gguf</code> (abenzerps UC) + <code>qwen3vl_8b_heretic-Q4_K_M.gguf</code> (pottokao Heretic abliterated) + <code>mmproj-f16</code> + <code>qwen_image_2.1_vae</code> + <code>ModelSamplingAuraFlow shift 3.1</code>.<br/>
-      <b>Locked:</b> <code>cfg 1.0</code> · <code>euler + simple</code> · <code>40 steps</code> · <code>denoise 1.0</code> · empty negative. Supports up to 10 refs + RGBA via <code>TextEncodeQwenImageEditPlus</code>.<br/>
-      <span style="color:var(--muted)">Text2Img = prompt → CLIPTextEncode → EmptySD3Latent → KSampler 40-step. Edit = ref.png via <code>TextEncodeQwenImageEditPlus(image1 + target_latent + vae)</code> → KSampler 40-step.</span>
+      <b>Qwen-Image-2.1 7B — unified T2I + edit + RGBA</b> — native <code>qwen-image-2.1-UC-Q4_K_M.gguf</code> (abenzerps UC, 4.6GB) + <code>qwen3vl_8b_heretic-Q4_K_M.gguf</code> (pottokao Heretic, uncensored) + <code>qwen_image_2.1_vae_bf16</code> + <code>TextEncodeQwenImage21</code> (native, up to 16 refs, resolution-aware).<br/>
+      <b>Locked:</b> <code>cfg 1.0</code> · <code>euler + simple</code> · <code>40 steps</code> · <code>denoise 1.0</code> · empty negative. Supports up to 16 refs + RGBA via prompt (<code>This is an RGBA image...</code>).<br/>
+      <span style="color:var(--muted)">T2I = <code>UnetLoaderGGUF</code> + <code>CLIPLoaderGGUF type=qwen_image</code> → <code>TextEncodeQwenImage21(no refs, resolution)</code> + <code>EmptyLatentImage</code> → KSampler. Edit = <code>LoadImage(ref.png)</code> → <code>TextEncodeQwenImage21(images={image_1})</code> → latent <code>[55,2]</code> → KSampler (+ <code>QwenImage21Cache</code>).</span>
     </div>
 
     <h2>Mode</h2>
@@ -80,7 +80,7 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
       <button id="mode_txt2img" class="btn small primary" onclick="setMode('txt2img')">Generate</button>
       <button id="mode_edit" class="btn small" onclick="setMode('edit')">Edit (ref)</button>
     </div>
-    <div id="hint" class="small" style="margin-top:8px">Generate: prompt → CLIPTextEncode + EmptySD3Latent → KSampler(40-step, euler/simple). Edit: ref.png → TextEncodeQwenImageEditPlus(image1+target_latent+prompt) + EmptySD3Latent → KSampler(40-step).</div>
+    <div id="hint" class="small" style="margin-top:8px">Generate: <code>TextEncodeQwenImage21</code> (no refs, resolution 1024) + EmptyLatentImage → KSampler 40-step. Edit: <code>LoadImage(reference.png)</code> → <code>TextEncodeQwenImage21(images={image_1})</code> → latent <code>[55,2]</code> → KSampler (QwenImage21Cache optional).</div>
 
     <h2>Prompt</h2>
     <label id="promptLabel">Prompt — describe the image you want</label>
@@ -109,7 +109,7 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
       <button class="btn small ghost" onclick="clearImages()">clear refs</button>
       <button class="btn small ghost" onclick="pastePrompt()">paste → prompt</button>
     </div>
-    <div id="editWarn" class="small hidden" style="margin-top:8px;color:var(--warn)">Edit needs a reference image. Upload one — it will be wired as <code>LoadImage(reference.png) → TextEncodeQwenImageEditPlus(image1 + target_latent)</code>. Generation starts from <code>EmptySD3Latent</code> (also fed to Plus node for sizing).</div>
+    <div id="editWarn" class="small hidden" style="margin-top:8px;color:var(--warn)">Edit needs a reference image. Upload one — it will be wired as <code>LoadImage(reference.png) → TextEncodeQwenImage21(vae + images={image_1}, resolution 1024)</code>. Prompt should mention <code>&lt;image1&gt;</code> (e.g. "change bg, keep person from &lt;image1&gt;"). Latent comes from <code>TextEncodeQwenImage21[2]</code>, sized via <code>resolution</code> param.</div>
 
     <h2>Generation</h2>
     <div class="row">
@@ -126,7 +126,7 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
         </select>
       </div>
     </div>
-    <div class="small" style="margin-top:6px">Qwen 2.1: <b>40 steps, cfg 1.0 · euler/simple · shift 3.1</b>. Q4 ~12GB VRAM at 1024², 2048² needs 24GB.</div>
+    <div class="small" style="margin-top:6px">Qwen 2.1: <b>40 steps, cfg 1.0 · euler/simple</b> (official 25-50). Q4 UC 4.6GB + Heretic 4GB + VAE 0.7GB ~10GB vol, ~12GB VRAM at 1024², 2048² needs 24GB. No <code>ModelSamplingAuraFlow</code> — sampling is native.</div>
     <details style="margin-top:8px">
       <summary class="small" style="cursor:pointer;color:var(--muted)">Advanced — sampler / size</summary>
       <div class="row" style="margin-top:8px">
@@ -143,7 +143,7 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
     </details>
 
     <h2>LoRAs (baked only)</h2>
-    <div class="small">Baked in image: check <code>/runpod-volume/models/loras/</code> or <code>models/loras/</code>. Add entries here — they become <code>LoraLoader</code> nodes between <code>ModelSamplingAuraFlow</code> and <code>KSampler</code>.</div>
+    <div class="small">Baked in image: check <code>/runpod-volume/models/loras/</code> or <code>models/loras/</code>. Add entries here — they become <code>LoraLoader</code> nodes between <code>UnetLoaderGGUF</code> and <code>KSampler</code> (clip+model).</div>
     <div id="loras"></div>
     <div class="row"><button class="btn small ghost" onclick="addLora()">+ add LoRA</button><button class="btn small ghost" onclick="clearLoras()">clear</button></div>
 
@@ -202,9 +202,9 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
 
     <h2>Worker</h2>
     <div class="kv">
-      Image: <b>ghcr.io/alfa-jim/darkcoal-qwen-2.1:latest</b> (FAST, VAE+LoRA baked, GGUFs on <code>/runpod-volume</code>)<br/>
-      Models: <b>qwen-image-2.1-uncensored-Q4_K_M.gguf</b> (~3.8GB) + <b>qwen3vl_8b_heretic-Q4_K_M</b> (~4GB) + <b>mmproj-f16</b> (1.35GB) + <b>qwen_image_2.1_vae</b><br/>
-      GPU: <b>4090 24GB recommended for 2048</b> · <code>shift 3.1</code> · <code>40-step · euler/simple · cfg 1</code> · <code>TextEncodeQwenImageEditPlus</code> (up to 10 refs, RGBA)<br/>
+      Image: <b>ghcr.io/alfa-jim/darkcoal-qwen-2.1:latest</b> (VAE baked, GGUFs on <code>/runpod-volume</code>)<br/>
+      Models: <b>qwen-image-2.1-UC-Q4_K_M.gguf</b> (abenzerps, 4.6GB) + <b>qwen3vl_8b_heretic-Q4_K_M.gguf</b> (pottokao, uncensored) + <code>mmproj-f16</code> (alt: <code>qwen3vl_8b_int8_convrot.safetensors</code>) + <b>qwen_image_2.1_vae_bf16</b><br/>
+      GPU: <b>4090 24GB recommended for 2048</b> · <code>40-step · euler/simple · cfg 1</code> · <code>TextEncodeQwenImage21</code> (up to 16 refs, RGBA via prompt, <code>QwenImage21Cache</code> auto)<br/>
       Try <b>/runsync</b> (sync) or <a href="#" onclick="setEndpointMode('run');return false">/run</a> (async poll). Current: <b id="epMode">runsync</b>
     </div>
     <label>Endpoint path</label>
@@ -331,35 +331,58 @@ function buildWorkflow(){
 
   const wf = {};
 
-  // Qwen 2.1 stack: UnetLoaderGGUF(Q4_K_M UC) + CLIPLoaderGGUF(Heretic Q4_K_M) + VAELoader + ModelSamplingAuraFlow
-  // Fallback types for ComfyUI 0.3.43 (no qwen_image enum yet) - gguf loader auto-detects via detect_te_model
-  wf["12"] = { inputs:{ unet_name:"qwen-image-2.1-uncensored-Q4_K_M.gguf" }, class_type:"UnetLoaderGGUF" };
-  wf["61"] = { inputs:{ clip_name:"qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf", type:"stable_diffusion", device:"default" }, class_type:"CLIPLoaderGGUF" };
-  wf["10"] = { inputs:{ vae_name:"qwen_image_vae.safetensors" }, class_type:"VAELoader" };
-  wf["66"] = { inputs:{ shift:3.1, model:["12",0] }, class_type:"ModelSamplingAuraFlow" };
+  // Qwen 2.1 native stack per HF + Comfy-Org workflow_templates:
+  // UnetLoaderGGUF (UC Q4_K_M - abenzerps) + CLIPLoaderGGUF (Heretic Q4_K_M - pottokao, type qwen_image) + VAELoader (qwen_image_2.1_vae_bf16)
+  // T2I: TextEncodeQwenImage21(no refs) + EmptyLatentImage -> KSampler
+  // Edit: LoadImage(s) -> TextEncodeQwenImage21(images={image_1..image_N}, resolution, vae) -> KSampler latent [55,2] + QwenImage21Cache
+  // Resolution param sizes reference latents; for T2I we keep EmptyLatentImage for explicit W/H.
+  const unetName = "qwen-image-2.1-UC-Q4_K_M.gguf";
+  const clipName = "qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf";
+  const vaeName  = "qwen_image_2.1_vae_bf16.safetensors";
+  // Alt clip fallback (Comfy-Org safetensor): qwen3vl_8b_int8_convrot.safetensors via CLIPLoader type qwen_image
+  wf["12"] = { inputs:{ unet_name: unetName }, class_type:"UnetLoaderGGUF" };
+  wf["53"] = { inputs:{ clip_name: clipName, type:"qwen_image", device:"default" }, class_type:"CLIPLoaderGGUF" };
+  wf["10"] = { inputs:{ vae_name: vaeName }, class_type:"VAELoader" };
 
-  let curModel = ["66",0], curClip = ["61",0];
+  let curModel = ["12",0], curClip = ["53",0];
   loras.forEach((l,i)=>{
     const id = String(100+i);
     wf[id] = { inputs:{ lora_name: l.name + (l.name.endsWith(".safetensors")?"":".safetensors"), strength_model: l.w, strength_clip: l.w, model: curModel, clip: curClip }, class_type:"LoraLoader" };
     curModel = [id,0]; curClip = [id,1];
   });
-  const clipRef = loras.length ? [String(100+loras.length-1),1] : ["61",0];
-  const modelIn = loras.length ? [String(100+loras.length-1),0] : ["66",0];
+  const clipRef = loras.length ? [String(100+loras.length-1),1] : ["53",0];
+  const modelRef = loras.length ? [String(100+loras.length-1),0] : ["12",0];
   const vaeRef = ["10",0];
+  // Resolution: use max(W,H) capped 0-2048, 0 = keep native. For T2I we use EmptyLatentImage, but TextEncodeQwenImage21 still needs resolution.
+  const resolution = Math.max(W,H) || 1024;
 
   if (mode==='txt2img'){
-    wf["27"] = { inputs:{ width:W, height:H, batch_size: Number($('batch').value)||1 }, class_type:"EmptySD3LatentImage" };
-    wf["6"] = { inputs:{ text: $('prompt').value, clip: clipRef }, class_type:"CLIPTextEncode" };
-    wf["33"] = { inputs:{ text: " ", clip: clipRef }, class_type:"CLIPTextEncode" };
-    wf["31"] = { inputs:{ seed: seedVal, steps, cfg, sampler_name: sampler, scheduler, denoise, model: modelIn, positive:["6",0], negative:["33",0], latent_image: ["27",0] }, class_type:"KSampler" };
+    // EmptyLatentImage defines sampler canvas; TextEncodeQwenImage21 resolution should match longest side
+    wf["27"] = { inputs:{ width:W, height:H, batch_size: Number($('batch').value)||1 }, class_type:"EmptyLatentImage" };
+    wf["55"] = { inputs:{ clip: clipRef, prompt: $('prompt').value, negative_prompt:"", vae: vaeRef, resolution }, class_type:"TextEncodeQwenImage21" };
+    wf["31"] = { inputs:{ seed: seedVal, steps, cfg, sampler_name: sampler, scheduler, denoise, model: modelRef, positive:["55",0], negative:["55",1], latent_image: ["27",0] }, class_type:"KSampler" };
   } else {
-    const refName = refs[0]?.name || 'reference.png';
-    wf["41"] = { inputs:{ image: refName }, class_type:"LoadImage" };
-    wf["27"] = { inputs:{ width:W, height:H, batch_size: Number($('batch').value)||1 }, class_type:"EmptySD3LatentImage" };
-    wf["6"] = { inputs:{ prompt: $('prompt').value, clip: clipRef, vae: vaeRef, image1: ["41",0], target_latent: ["27",0] }, class_type:"TextEncodeQwenImageEditPlus" };
-    wf["33"] = { inputs:{ text: " ", clip: clipRef }, class_type:"CLIPTextEncode" };
-    wf["31"] = { inputs:{ seed: seedVal, steps, cfg, sampler_name: sampler, scheduler, denoise, model: modelIn, positive:["6",0], negative:["33",0], latent_image: ["27",0] }, class_type:"KSampler" };
+    // Multi-ref: up to 10 refs via TextEncodeQwenImage21 autogrow images={image_1..}
+    const maxRefs = Math.min(refs.length, 10) || 1;
+    const images = {};
+    for(let i=0;i<maxRefs;i++){
+      const nid = String(41+i);
+      const r = refs[i] || refs[0];
+      const name = r ? r.name : 'reference.png';
+      wf[nid] = { inputs:{ image: name }, class_type:"LoadImage" };
+      images[`image_${i+1}`] = [nid,0];
+    }
+    // If refs empty, wf[41] still created as placeholder (will 404, handler warns)
+    if (maxRefs===0){
+      wf["41"] = { inputs:{ image:"reference.png" }, class_type:"LoadImage" };
+      images["image_1"] = ["41",0];
+    }
+    wf["55"] = { inputs:{ clip: clipRef, prompt: $('prompt').value, negative_prompt:"", vae: vaeRef, resolution, images }, class_type:"TextEncodeQwenImage21" };
+    // Optional KV-cache — speeds edit when spare VRAM exists
+    wf["469"] = { inputs:{ model: modelRef, device:"auto", dtype:"default" }, class_type:"QwenImage21Cache" };
+    const cacheModel = ["469",0];
+    // Latent comes from TextEncodeQwenImage21 [55,2] (sized via resolution); no EmptyLatentImage needed
+    wf["31"] = { inputs:{ seed: seedVal, steps, cfg, sampler_name: sampler, scheduler, denoise, model: cacheModel, positive:["55",0], negative:["55",1], latent_image: ["55",2] }, class_type:"KSampler" };
   }
 
   wf["8"] = { inputs:{ samples:["31",0], vae:vaeRef }, class_type:"VAEDecode" };

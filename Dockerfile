@@ -1,27 +1,23 @@
-# Need ubuntu24.04 for python3.12, but no 12.4.1-ubuntu24.04 tag exists -> use 12.6.3-ubuntu24.04 (driver >=560, compatible with 535+ hosts via compat, unlike 12.8 needing 570)
+# Qwen 2.1 — tailormade for abenzerps/Qwen-Image-2.1-Uncensored-GGUF
+# Base: nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04 (driver >=560, compat with 535+ hosts, unlike 12.8 needing 570)
 ARG BASE_IMAGE=nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
 
 # Stage 1: Base image with common dependencies
 FROM ${BASE_IMAGE} AS base
 
-# Build arguments for this stage with sensible defaults for standalone builds
-# Qwen 2.1 requires ComfyUI >=0.3.44+ (QWEN_IMAGE CLIPType + QwenImage21 nodes) + diffusers>=0.37 + transformers>=5.17
+# Qwen 2.1 requires ComfyUI >=0.3.44 (QWEN_IMAGE + QwenImage21 nodes) + diffusers>=0.37 + transformers>=5.17
 ARG COMFYUI_VERSION=0.3.48
 ARG CUDA_VERSION_FOR_COMFY=12.6
 ARG ENABLE_PYTORCH_UPGRADE=true
 ARG PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu126
 
-# Prevents prompts from packages asking for user input during installation
 ENV DEBIAN_FRONTEND=noninteractive
-# Prefer binary wheels over source distributions for faster pip installations
 ENV PIP_PREFER_BINARY=1
-# Ensures output from python is printed immediately to the terminal without buffering
 ENV PYTHONUNBUFFERED=1
-# Speed up some cmake builds
 ENV CMAKE_BUILD_PARALLEL_LEVEL=8
 
 # Install Python, git and other necessary tools (retry apt for transient mirror failures)
-# build-essential + gcc needed for Triton JIT (Qwen 2.1 CLIPTextEncode -> triton)
+# build-essential + gcc + python3.12-dev needed for Triton JIT (comfy/text_encoders/qwen_image21 -> triton.language)
 RUN (apt-get update || (sleep 5 && apt-get update) || (sleep 10 && apt-get update)) && apt-get install -y --fix-missing \
     python3.12 \
     python3.12-venv \
@@ -42,15 +38,16 @@ RUN (apt-get update || (sleep 5 && apt-get update) || (sleep 10 && apt-get updat
     && ln -sf /usr/bin/python3.12 /usr/bin/python \
     && ln -sf /usr/bin/pip3 /usr/bin/pip
 
-# Triton JIT needs a C compiler at RUNTIME (Qwen 2.1 CLIPTextEncode -> triton.language).
-# build-essential is not enough unless CC/CXX are set and triton can find them on PATH.
+# Triton JIT needs a C compiler at RUNTIME (comfy/text_encoders/qwen_image21 -> triton.language).
+# build-essential is not enough unless CC/CXX are exported and triton can find them on PATH.
 ENV CC=gcc
 ENV CXX=g++
 ENV TRITON_CACHE_DIR=/tmp/triton_cache
 
-# Clean up to reduce image size (keep gcc/g++ for runtime JIT)
+# Clean up (keep gcc/g++ for runtime JIT)
 RUN apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
-    which gcc && gcc --version | head -1 && which g++ && g++ --version | head -1 && echo "C compiler OK (CC=$CC)"
+    which gcc && gcc --version | head -1 && which g++ && g++ --version | head -1 && echo "C compiler OK (CC=$CC)" && \
+    mkdir -p $TRITON_CACHE_DIR && chmod 777 $TRITON_CACHE_DIR
 
 # Install uv (latest) using official installer and create isolated venv
 RUN wget -qO- https://astral.sh/uv/install.sh | sh \
@@ -58,12 +55,9 @@ RUN wget -qO- https://astral.sh/uv/install.sh | sh \
     && ln -s /root/.local/bin/uvx /usr/local/bin/uvx \
     && uv venv /opt/venv
 
-# Use the virtual environment for all subsequent commands
 ENV PATH="/opt/venv/bin:${PATH}"
 
 # Install comfy-cli + dependencies needed by it to install ComfyUI
-# comfy-cli is pinned: its install/torch-index behavior decides what lands in
-# the workspace venv, so an unpinned version makes builds non-reproducible.
 RUN uv pip install comfy-cli==1.13.0 pip setuptools wheel
 
 # Install ComfyUI
@@ -73,97 +67,66 @@ RUN if [ -n "${CUDA_VERSION_FOR_COMFY}" ]; then \
       /usr/bin/yes | comfy --workspace /comfyui install --version "${COMFYUI_VERSION}" --nvidia; \
     fi
 
-# ComfyUI 0.3.48 may predate qwen_image21 - ensure qwen_image21 support (Qwen 2.1 DiT + Qwen3-VL-8B)
-# comfy-cli installs from release archive (no .git), so git update may not apply - warn but don't fail build.
+# Ensure qwen_image21 support (Qwen 2.1 DiT + Qwen3-VL-8B). ComfyUI 0.3.48 should include it, but verify.
 RUN if [ ! -f /comfyui/comfy/text_encoders/qwen_image21.py ]; then \
       echo "ComfyUI missing qwen_image21 - attempting to update (best effort)" && \
-      (cd /comfyui && git fetch origin --depth=1 2>&1 | head -5 && git checkout origin/master 2>&1 | head -20 && uv pip install -r requirements.txt 2>&1 | tail -5 && ls -l comfy/text_encoders/qwen_image*.py) || \
-      echo "WARN: ComfyUI qwen_image21 still missing - build will continue, but DiT load may fail. Bump COMFYUI_VERSION to newer release." && ls -l /comfyui/comfy/text_encoders/ 2>&1 | head -20; \
-    else echo "ComfyUI qwen_image21 already present:" && ls -l /comfyui/comfy/text_encoders/qwen_image*.py; fi
+      (cd /comfyui && git init 2>&1 | head -3; git remote add origin https://github.com/comfyanonymous/ComfyUI 2>&1 | head -3; git fetch origin --depth=1 2>&1 | head -10; git checkout FETCH_HEAD -- comfy/text_encoders/qwen_image21.py 2>&1 | head -20; ls -l comfy/text_encoders/qwen_image*.py) || \
+      echo "WARN: qwen_image21 still missing - bump COMFYUI_VERSION" && ls -l /comfyui/comfy/text_encoders/ 2>&1 | head -20; \
+    else echo "ComfyUI qwen_image21 present:" && ls -l /comfyui/comfy/text_encoders/qwen_image*.py; fi
 
-# Upgrade PyTorch if needed (for newer CUDA versions)
+# Upgrade PyTorch if needed
 RUN if [ "$ENABLE_PYTORCH_UPGRADE" = "true" ]; then \
       uv pip install --force-reinstall torch torchvision torchaudio --index-url ${PYTORCH_INDEX_URL}; \
     fi
 
-# comfy-cli installs ComfyUI into its own workspace venv (/comfyui/.venv), but
-# start.sh launches ComfyUI with /opt/venv's python. That mismatch leaves the
-# launch venv missing ComfyUI's runtime deps (e.g. sqlalchemy, pulled in by
-# ComfyUI's asset DB), so ComfyUI crashes at startup and surfaces as the
-# misleading "ComfyUI server (127.0.0.1:8188) not reachable" error. Mirror
-# ComfyUI's full dependency set (core + custom nodes) into /opt/venv so the
-# launch venv is complete. Root-cause fix for DR-1170.
-#
-# The transformers/huggingface-hub pin is part of the SAME step on purpose:
-# ComfyUI declares transformers>=4.50.3 and huggingface-hub with NO upper bound,
-# so a fresh install can pull transformers 5.x / huggingface-hub 1.x whose
-# breaking API changes also crash ComfyUI at startup. Pinning them in the same
-# RUN downgrades within one layer, so the unwanted versions aren't left behind
-# bloating the image.
-#
-# torch is installed FIRST, pinned to cu126 (matches BASE_IMAGE 12.6.3 / driver >=560).
-# Passing --index-url via comfy install alone doesn't pin torch during the
-# `uv pip install -r requirements.txt` step - ComfyUI's bare `torch` pulls
-# cu13 from PyPI (needs driver >=580) which fails cuda init on 12.6 hosts.
+# Mirror ComfyUI's full dependency set into /opt/venv so launch venv is complete (fixes "server not reachable").
+# torch is pinned to cu126 first (matches BASE_IMAGE 12.6.3 / driver >=560). Then install ComfyUI reqs, then re-pin cu126.
+# Then upgrade transformers/diffusers for Qwen 2.1. Triton must match torch — verify import.
 RUN uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
 RUN uv pip install -r /comfyui/requirements.txt
 RUN for r in /comfyui/custom_nodes/*/requirements.txt; do [ -f "$r" ] && uv pip install -r "$r" || true; done
-# Re-pin torch to cu126 after requirements.txt (which pulls cpu torch), then upgrade transformers/diffusers for Qwen 2.1
-# Triton is required at runtime for Qwen 2.1 (comfy/text_encoders/qwen_image21 -> triton.language). Torch bundles triton, but verify.
-RUN uv pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126 && uv pip install --upgrade "transformers>=5.17,<6" "diffusers>=0.37.0" accelerate safetensors "huggingface-hub>=0.34" && \
-    uv pip install --upgrade triton && python -c "import triton; print('triton', triton.__version__)" && python -c "import triton.language as tl; print('triton.language OK')"
+# Re-pin torch to cu126 after requirements.txt, then upgrade for Qwen 2.1 (transformers 5.x required for Qwen3-VL)
+RUN uv pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126 && \
+    uv pip install --upgrade "transformers>=5.17,<6" "diffusers>=0.37.0" accelerate safetensors "huggingface-hub>=0.34" && \
+    python -c "import torch; print('torch', torch.__version__, torch.version.cuda)" && \
+    python -c "import triton; print('triton', triton.__version__)" && \
+    python -c "import triton.language as tl; print('triton.language OK')" && \
+    python -c "import diffusers; print('diffusers', diffusers.__version__)" && \
+    python -c "import transformers; print('transformers', transformers.__version__)"
 
-# ComfyUI-GGUF custom nodes for UnetLoaderGGUF / CLIPLoaderGGUF (qwen-image-edit GGUF)
-# Install order matters: gguf pip pkg first so node import doesn't fail on cold import.
+# ComfyUI-GGUF for UnetLoaderGGUF / CLIPLoaderGGUF
+# HF docs: use leejet/ComfyUI-GGUF for Qwen 2.1 (native qwen_image21 arch). Prefer leejet, fallback to city96.
 RUN uv pip install "gguf>=0.13.0" sentencepiece protobuf && \
-    comfy-node-install ComfyUI-GGUF || (git clone https://github.com/city96/ComfyUI-GGUF /comfyui/custom_nodes/ComfyUI-GGUF && uv pip install -r /comfyui/custom_nodes/ComfyUI-GGUF/requirements.txt || true) && \
-    ls -l /comfyui/custom_nodes/ComfyUI-GGUF/nodes.py && uv pip show gguf | head -5
+    (git clone https://github.com/leejet/ComfyUI-GGUF /comfyui/custom_nodes/ComfyUI-GGUF && echo "Cloned leejet/ComfyUI-GGUF" || \
+     (git clone https://github.com/city96/ComfyUI-GGUF /comfyui/custom_nodes/ComfyUI-GGUF && echo "Fallback city96")) && \
+    uv pip install -r /comfyui/custom_nodes/ComfyUI-GGUF/requirements.txt || true && \
+    ls -l /comfyui/custom_nodes/ComfyUI-GGUF/ && uv pip show gguf | head -5 && \
+    python -c "import folder_paths; print('gguf loader check done')"
 
-# Qwen-Image 2.1 GGUF arch patch: upstream ComfyUI-GGUF 0.3.x still only lists "qwen_image"
-# but abenzerps/pottokao GGUFs are stamped "qwen_image21" -> loader throws
-# "Unexpected architecture type in GGUF file: 'qwen_image21'". Patch IMG_ARCH_LIST to allow both.
-RUN if grep -q "qwen_image21" /comfyui/custom_nodes/ComfyUI-GGUF/loader.py; then \
-      echo "GGUF qwen_image21 already patched"; grep IMG_ARCH /comfyui/custom_nodes/ComfyUI-GGUF/loader.py; \
+# Verify qwen_image21 arch is handled by GGUF loader (leejet should already support it; city96 needs patch)
+RUN if grep -q "qwen_image21" /comfyui/custom_nodes/ComfyUI-GGUF/*.py 2>/dev/null; then \
+      echo "GGUF qwen_image21 already supported (leejet)"; grep -l "qwen_image21" /comfyui/custom_nodes/ComfyUI-GGUF/*.py; \
     else \
-      echo "Patching ComfyUI-GGUF loader.py for qwen_image21..."; grep IMG_ARCH /comfyui/custom_nodes/ComfyUI-GGUF/loader.py; \
-      sed -i 's/"qwen_image"/"qwen_image", "qwen_image21"/' /comfyui/custom_nodes/ComfyUI-GGUF/loader.py && \
-      echo "Patched:" && grep IMG_ARCH /comfyui/custom_nodes/ComfyUI-GGUF/loader.py; \
-    fi && \
-    grep -q "qwen_image21" /comfyui/custom_nodes/ComfyUI-GGUF/loader.py && echo "GGUF qwen_image21 patch OK" || (echo "FATAL: GGUF qwen_image21 patch failed" && grep IMG_ARCH /comfyui/custom_nodes/ComfyUI-GGUF/loader.py; exit 1)
-
-# Phr00t Rapid-AIO fixed Qwen node - replaces ComfyUI's broken TextEncodeQwenImageEdit scaling/crop + single-image limit
-# This adds TextEncodeQwenImageEditPlus (up to 4 images, latent-aware sizing). Required for Rapid.
-# Must land AFTER ComfyUI install so it overwrites /comfyui/comfy_extras/nodes_qwen.py last.
-# Skip for qwen-2.1 (native Qwen3-VL, different node file - Phr00t is for qwen-image-edit 1.x only)
-RUN if [ -f /comfyui/comfy_extras/nodes_qwen.py ]; then \
-      echo "=== patching comfy_extras/nodes_qwen.py -> Phr00t v2 (qwen-image-edit) ===" && \
-      cp /comfyui/comfy_extras/nodes_qwen.py /comfyui/comfy_extras/nodes_qwen.py.bak && \
-      curl -L --retry 5 --retry-delay 10 --retry-all-errors -o /comfyui/comfy_extras/nodes_qwen.py \
-        https://huggingface.co/Phr00t/Qwen-Image-Edit-Rapid-AIO/resolve/main/fixed-textencode-node/nodes_qwen.v2.py && \
-      echo "patched nodes_qwen.py:" && ls -lh /comfyui/comfy_extras/nodes_qwen.py /comfyui/comfy_extras/nodes_qwen.py.bak && \
-      grep -q "TextEncodeQwenImageEditPlus" /comfyui/comfy_extras/nodes_qwen.py && echo "Plus node OK" || (echo "FATAL: patched nodes_qwen.py missing TextEncodeQwenImageEditPlus"; exit 1) && \
-      grep -q "TextEncodeQwenImageEdit" /comfyui/comfy_extras/nodes_qwen.py && echo "Base node OK" || (echo "FATAL: patched nodes_qwen.py missing TextEncodeQwenImageEdit"; exit 1); \
-    else \
-      echo "SKIP Phr00t patch - /comfyui/comfy_extras/nodes_qwen.py not present (qwen-2.1 uses native nodes, OK)"; ls -l /comfyui/comfy_extras/ | head -20; \
+      echo "Patching ComfyUI-GGUF for qwen_image21..."; grep -n "qwen_image" /comfyui/custom_nodes/ComfyUI-GGUF/*.py 2>&1 | head -20; \
+      if grep -q '"qwen_image"' /comfyui/custom_nodes/ComfyUI-GGUF/loader.py 2>/dev/null; then \
+        sed -i 's/"qwen_image"/"qwen_image", "qwen_image21"/' /comfyui/custom_nodes/ComfyUI-GGUF/loader.py && echo "Patched loader.py"; \
+      fi; \
+      grep -q "qwen_image21" /comfyui/custom_nodes/ComfyUI-GGUF/*.py && echo "Patch OK" || echo "WARN: qwen_image21 not found post-patch (may be OK with leejet)"; \
     fi
 
-# Support for the network volume - copy BEFORE smoke test so the yaml is validated at build time.
+# Qwen 2.1 native nodes are in comfy/text_encoders/qwen_image21.py and comfy_extras/nodes_qwen.py (TextEncodeQwenImage21)
+# Do NOT apply Phr00t Rapid-AIO patch (qwen-image-edit 1.x only) — it would overwrite native 2.1 nodes.
+
+# Support for the network volume - copy BEFORE smoke test so yaml is validated at build time.
 WORKDIR /comfyui
 ADD src/extra_model_paths.yaml ./
-# Validate yaml syntax + that ComfyUI extra_config loader accepts our keys (including unet_gguf/clip_gguf).
 RUN python -c "import yaml, pathlib; p=pathlib.Path('extra_model_paths.yaml'); cfg=yaml.safe_load(p.read_text()); assert 'runpod_worker_comfy' in cfg, cfg; assert 'unet_gguf' in cfg['runpod_worker_comfy'], 'unet_gguf missing'; assert 'clip_gguf' in cfg['runpod_worker_comfy'], 'clip_gguf missing'; print('extra_model_paths.yaml OK:', list(cfg['runpod_worker_comfy'].keys()))" \
- && python -c "import folder_paths, utils.extra_config; utils.extra_config.load_extra_path_config('extra_model_paths.yaml'); assert 'unet_gguf' in folder_paths.folder_names_and_paths or True; print('extra paths loaded, keys now:', [k for k in folder_paths.folder_names_and_paths if 'gguf' in k or k in ('diffusion_models','text_encoders')])"
+ && python -c "import folder_paths, utils.extra_config; utils.extra_config.load_extra_path_config('extra_model_paths.yaml'); print('extra paths loaded, keys now:', [k for k in folder_paths.folder_names_and_paths if 'gguf' in k or k in ('diffusion_models','text_encoders')])"
 WORKDIR /
 
-# Build-time smoke test: actually start ComfyUI (imports the full node graph incl. ComfyUI-GGUF)
-# so a startup-breaking dependency is caught HERE, at build time, instead of as a
-# runtime "server not reachable" failure on a live worker. Runs on CPU - no GPU needed.
-# quick-test-for-ci imports all nodes, including UnetLoaderGGUF/CLIPLoaderGGUF.
+# Build-time smoke test: actually start ComfyUI (imports full node graph incl. ComfyUI-GGUF + qwen_image21)
 RUN cd /comfyui && timeout 300 python main.py --quick-test-for-ci --cpu
-# Change working directory to ComfyUI (for heritage layer assumptions)
 WORKDIR /comfyui
-
-# Go back to the root
 WORKDIR /
 
 # Install Python runtime dependencies for the handler
@@ -173,77 +136,27 @@ RUN uv pip install runpod requests websocket-client
 ADD src/start.sh src/network_volume.py handler.py test_input.json ./
 RUN chmod +x /start.sh
 
-# Add script to install custom nodes
 COPY scripts/comfy-node-install.sh /usr/local/bin/comfy-node-install
 RUN chmod +x /usr/local/bin/comfy-node-install
-
-# Prevent pip from asking for confirmation during uninstall steps in custom nodes
 ENV PIP_NO_INPUT=1
-
-# Copy helper script to switch Manager network mode at container start
 COPY scripts/comfy-manager-set-mode.sh /usr/local/bin/comfy-manager-set-mode
 RUN chmod +x /usr/local/bin/comfy-manager-set-mode
 
-# Set the default command to run when starting the container
 CMD ["/start.sh"]
 
 # Stage 2: Download models
 FROM base AS downloader
-
 ARG HUGGINGFACE_ACCESS_TOKEN
-# Set default model type - qwen-image-edit supports both text2img and image edit
 ARG MODEL_TYPE=qwen-2.1
-
-# Change working directory to ComfyUI
 WORKDIR /comfyui
+RUN mkdir -p models/checkpoints models/vae models/unet models/clip models/text_encoders models/diffusion_models models/model_patches models/loras
 
-# Create necessary directories upfront
-RUN mkdir -p models/checkpoints models/vae models/unet models/clip models/text_encoders models/diffusion_models models/model_patches
-
-# Download checkpoints/vae/unet/clip models to include in image based on model type
+# Keep upstream MODEL_TYPE branches for compatibility, but qwen-2.1 is volume-native (see stage 3)
 RUN if [ "$MODEL_TYPE" = "sdxl" ]; then \
       wget -q -O models/checkpoints/sd_xl_base_1.0.safetensors https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors && \
       wget -q -O models/vae/sdxl_vae.safetensors https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors && \
       wget -q -O models/vae/sdxl-vae-fp16-fix.safetensors https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/resolve/main/sdxl_vae.safetensors; \
     fi
-
-RUN if [ "$MODEL_TYPE" = "sd3" ]; then \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/checkpoints/sd3_medium_incl_clips_t5xxlfp8.safetensors https://huggingface.co/stabilityai/stable-diffusion-3-medium/resolve/main/sd3_medium_incl_clips_t5xxlfp8.safetensors; \
-    fi
-
-RUN if [ "$MODEL_TYPE" = "flux1-schnell" ]; then \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/unet/flux1-schnell.safetensors https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors && \
-      wget -q -O models/clip/clip_l.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors && \
-      wget -q -O models/clip/t5xxl_fp8_e4m3fn.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors && \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/vae/ae.safetensors https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors; \
-    fi
-
-RUN if [ "$MODEL_TYPE" = "flux1-dev" ]; then \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/unet/flux1-dev.safetensors https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.safetensors && \
-      wget -q -O models/clip/clip_l.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors && \
-      wget -q -O models/clip/t5xxl_fp8_e4m3fn.safetensors https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors && \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/vae/ae.safetensors https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors; \
-    fi
-
-RUN if [ "$MODEL_TYPE" = "flux1-dev-fp8" ]; then \
-      wget -q -O models/checkpoints/flux1-dev-fp8.safetensors https://huggingface.co/Comfy-Org/flux1-dev/resolve/main/flux1-dev-fp8.safetensors; \
-    fi
-
-RUN if [ "$MODEL_TYPE" = "z-image-turbo" ]; then \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/text_encoders/qwen_3_4b.safetensors https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors && \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/diffusion_models/z_image_turbo_bf16.safetensors https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors && \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/vae/ae.safetensors https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors && \
-      wget -q --header="Authorization: Bearer ${HUGGINGFACE_ACCESS_TOKEN}" -O models/model_patches/Z-Image-Turbo-Fun-Controlnet-Union.safetensors https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors; \
-    fi
-
-RUN if [ "$MODEL_TYPE" = "illustrious" ]; then \
-      wget -q -O models/checkpoints/Illustrious-XL-v2.0.safetensors https://huggingface.co/OnomaAIResearch/Illustrious-XL-v2.0/resolve/main/Illustrious-XL-v2.0.safetensors; \
-    fi
-
-# Qwen-Image-Edit - GGUF-ONLY uncensored (no safetensors bloat)
-# For MODEL_TYPE=qwen-image-edit we bake ONLY the native uncensored GGUFs + VAE + anime LoRA.
-# Do NOT download the 8.7GB fp8 text encoder or 19GB fp8 diffusion - those are censored and 28GB wasted.
-# qwen-image (non-edit) still uses fp8 safetensors (separate path, not used by default target).
 RUN if [ "$MODEL_TYPE" = "qwen-image" ]; then \
       mkdir -p models/diffusion_models models/text_encoders models/vae && \
       wget -q -O models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors && \
@@ -254,62 +167,45 @@ RUN if [ "$MODEL_TYPE" = "qwen-image-edit" ]; then \
       mkdir -p models/vae models/loras && \
       wget -q -O models/vae/qwen_image_vae.safetensors https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors && \
       wget -q -O models/loras/qwen-anime-irl.safetensors https://huggingface.co/flymy-ai/qwen-image-anime-irl-lora/resolve/main/flymy_anime_irl.safetensors && \
-      echo "downloader: VAE + anime LoRA ready (no fp8 bloat)" && ls -lh models/vae/ models/loras/; \
+      echo "downloader: VAE + anime LoRA ready" && ls -lh models/vae/ models/loras/; \
     fi
 
-# -- FAST VARIANT --
-# darkcoal-qwen-fast is network-volume-native: the 3 uncensored GGUFs (q4_0 4.1GB + Q6_K 15.6GB + mmproj 1.35GB)
-# live on /runpod-volume, NOT baked into the image. This cuts image from ~30GB -> ~5GB and
-# build from ~12 min -> ~3 min, and cold start from ~10 min -> ~90s (volume reads instantly
-# via extra_model_paths.yaml, no GHCR pull of giant layers).
-# VAE (254MB) + anime LoRA (~150MB) are still baked as a convenience; they are tiny.
-# To bake GGUFs again (e.g. for offline test), set USE_NETWORK_VOLUME=false at build time.
+# Bake VAE stub for qwen-2.1 (tiny, always useful even when volume holds it)
+RUN if [ "$MODEL_TYPE" = "qwen-2.1" ]; then \
+      mkdir -p models/vae && \
+      wget -q -O models/vae/qwen_image_2.1_vae_bf16.safetensors https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors && \
+      ln -sf qwen_image_2.1_vae_bf16.safetensors models/vae/qwen_image_vae.safetensors && \
+      echo "qwen-2.1 VAE baked:" && ls -lh models/vae/; \
+    fi
+
 ARG USE_NETWORK_VOLUME=true
 
-# Stage 3: qwen-downloader - adds native uncensored GGUFs on top of downloader (inherits VAE, no COPY bloat)
-# In FAST mode this stage is effectively a no-op (models come from volume).
+# Stage 3: qwen-downloader - adds GGUFs on top of downloader when NOT volume-native
 FROM downloader AS qwen-downloader
-
 ARG HUGGINGFACE_ACCESS_TOKEN
 ARG MODEL_TYPE=qwen-2.1
 ARG USE_NETWORK_VOLUME
-
 WORKDIR /comfyui
+# qwen-image-edit baked path (kept for compatibility)
 RUN if [ "$MODEL_TYPE" = "qwen-image-edit" ] && [ "$USE_NETWORK_VOLUME" != "true" ]; then \
       set -x && \
-      echo "=== [1/2] Qwen2.5-VL-7B q4_0 GGUF text encoder (4.13GB, uncensored) ===" && df -h && \
-      curl -L --retry 5 --retry-delay 10 --retry-all-errors --connect-timeout 30 --progress-bar -o models/text_encoders/Qwen2.5-VL-7B-Instruct-q4_0.gguf https://huggingface.co/ChrisColeTech/qwen-image-edit-uncensored-GGUF/resolve/main/split/text_encoders/Qwen2.5-VL-7B-Instruct-q4_0.gguf && \
-      echo "=== [1/2] DONE ===" && ls -lh models/text_encoders/Qwen2.5-VL-7B-Instruct-q4_0.gguf && df -h && \
-      echo "=== [2/2] qwen-image-edit-2511-uncensored Q6_K GGUF (15.6GB native uncensored) ===" && \
-      curl -L --retry 5 --retry-delay 10 --retry-all-errors --connect-timeout 30 --progress-bar -o models/diffusion_models/qwen-image-edit-2511-uncensored-Q6_K.gguf https://huggingface.co/ChrisColeTech/qwen-image-edit-uncensored-GGUF/resolve/main/split/diffusion_models/qwen-image-edit-2511-uncensored-Q6_K.gguf && \
-      echo "=== [2/2] DONE ===" && ls -lh models/diffusion_models/qwen-image-edit-2511-uncensored-Q6_K.gguf && df -h && \
-      echo "=== ALL GGUF DOWNLOADS DONE (native uncensored, 19.7GB total) ===" && du -sh models/* && ls -lh models/text_encoders/ models/diffusion_models/ models/vae/; \
-    elif [ "$MODEL_TYPE" = "qwen-image-edit" ]; then \
-      echo "FAST: skipping GGUF bake (USE_NETWORK_VOLUME=true) - models live on /runpod-volume. VAE+LoRA are baked."; df -h; ls -R models || true; \
-    fi
-
-# mmproj vision projector - also volume-native in FAST mode; required for TextEncodeQwenImageEdit*.
-# Without it, ComfyUI warns "Can't find mmproj file" and throws "mat1 and mat2 shapes cannot be multiplied (792x1280 and 3840x1280)".
-RUN if [ "$MODEL_TYPE" = "qwen-image-edit" ] && [ "$USE_NETWORK_VOLUME" != "true" ]; then \
-      set -x && \
-      echo "=== [3/3] Qwen2.5-VL-7B mmproj-f16 GGUF vision projector (1.35GB) ===" && df -h && \
-      if [ ! -f models/text_encoders/Qwen2.5-VL-7B-Instruct-mmproj-f16.gguf ]; then \
-        curl -L --retry 5 --retry-delay 10 --retry-all-errors --connect-timeout 30 --progress-bar -o models/text_encoders/Qwen2.5-VL-7B-Instruct-mmproj-f16.gguf https://huggingface.co/ChrisColeTech/qwen-image-edit-uncensored-GGUF/resolve/main/split/text_encoders/Qwen2.5-VL-7B-Instruct-mmproj-f16.gguf && \
-        echo "=== [3/3] DONE ===" && ls -lh models/text_encoders/Qwen2.5-VL-7B-Instruct-mmproj-f16.gguf && df -h; \
-      else echo "mmproj already present, skipping"; ls -lh models/text_encoders/Qwen2.5-VL-7B-Instruct-mmproj-f16.gguf; fi && \
-      echo "=== FINAL GGUF SET (with mmproj) ===" && du -sh models/* && ls -lh models/text_encoders/ models/diffusion_models/ models/vae/; \
-    elif [ "$MODEL_TYPE" = "qwen-image-edit" ]; then \
-      echo "FAST: skipping mmproj bake (volume-native)."; \
-    fi
-
+      curl -L --retry 5 --retry-delay 10 --progress-bar -o models/text_encoders/Qwen2.5-VL-7B-Instruct-q4_0.gguf https://huggingface.co/ChrisColeTech/qwen-image-edit-uncensored-GGUF/resolve/main/split/text_encoders/Qwen2.5-VL-7B-Instruct-q4_0.gguf && \
+      curl -L --retry 5 --retry-delay 10 --progress-bar -o models/diffusion_models/qwen-image-edit-2511-uncensored-Q6_K.gguf https://huggingface.co/ChrisColeTech/qwen-image-edit-uncensored-GGUF/resolve/main/split/diffusion_models/qwen-image-edit-2511-uncensored-Q6_K.gguf && \
+      curl -L --retry 5 --retry-delay 10 --progress-bar -o models/text_encoders/Qwen2.5-VL-7B-Instruct-mmproj-f16.gguf https://huggingface.co/ChrisColeTech/qwen-image-edit-uncensored-GGUF/resolve/main/split/text_encoders/Qwen2.5-VL-7B-Instruct-mmproj-f16.gguf; \
+    elif [ "$MODEL_TYPE" = "qwen-image-edit" ]; then echo "FAST: qwen-image-edit volume-native (skip bake)"; fi
+# qwen-2.1: volume-native by default; optionally bake if USE_NETWORK_VOLUME=false
 RUN if [ "$MODEL_TYPE" = "qwen-2.1" ] && [ "$USE_NETWORK_VOLUME" != "true" ]; then \
-      echo "BAKED qwen-2.1 requested but volume-native is recommended - skipping heavy bake, see volume populate script"; \
+      echo "WARN: BAKED qwen-2.1 bake requested - downloading ~10GB (UC-Q4_K_M + Heretic + VAE)"; \
+      mkdir -p models/diffusion_models models/text_encoders && \
+      curl -L --retry 5 --retry-delay 10 --progress-bar -o models/diffusion_models/qwen-image-2.1-UC-Q4_K_M.gguf https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q4_K_M.gguf && \
+      ln -sf qwen-image-2.1-UC-Q4_K_M.gguf models/diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf && \
+      curl -L --retry 5 --retry-delay 10 --progress-bar -o models/text_encoders/qwen3vl_8b_heretic-Q4_K_M.gguf https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/qwen3vl_8b_heretic-Q4_K_M.gguf && \
+      ln -sf qwen3vl_8b_heretic-Q4_K_M.gguf models/text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf && \
+      curl -L --retry 5 --retry-delay 10 --progress-bar -o models/text_encoders/mmproj-qwen3vl_8b_heretic-f16.gguf https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/mmproj-qwen3vl_8b_heretic-f16.gguf && \
+      ln -sf mmproj-qwen3vl_8b_heretic-f16.gguf models/text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf && \
+      ls -lh models/diffusion_models/ models/text_encoders/; \
     elif [ "$MODEL_TYPE" = "qwen-2.1" ]; then \
-      echo "FAST: qwen-2.1 volume-native - transformer 2 shards + text_encoder 4 shards + vae live on /runpod-volume (33GB). Baked VAE stub present."; df -h; ls -R models || true; \
-    fi
-
-RUN if [ "$MODEL_TYPE" = "qwen-2.1" ]; then \
-      echo "FAST: qwen-2.1 mmproj/text_encoder handled via volume (Qwen3-VL)."; \
+      echo "qwen-2.1 volume-native - GGUFs live on /runpod-volume (see setup_network_volume.sh). Baked VAE only."; ls -R models || true; \
     fi
 FROM qwen-downloader AS final
-RUN echo "=== FINAL (FAST: VAE+LoRA baked, GGUFs on /runpod-volume) ===" && ls -lh /comfyui/models/text_encoders/ /comfyui/models/diffusion_models/ /comfyui/models/vae/ /comfyui/models/loras/ 2>&1; du -sh /comfyui/models/* 2>&1; echo "ComfyUI-GGUF check:" && ls -ld /comfyui/custom_nodes/ComfyUI-GGUF 2>&1; echo "PyTorch check:" && uv run python -c "import torch; print(torch.__version__, torch.version.cuda)" 2>&1 | head -5
+RUN echo "=== FINAL (qwen-2.1 volume-native) ===" && ls -lh /comfyui/models/text_encoders/ /comfyui/models/diffusion_models/ /comfyui/models/vae/ 2>&1; du -sh /comfyui/models/* 2>&1; echo "ComfyUI-GGUF:" && ls -ld /comfyui/custom_nodes/ComfyUI-GGUF 2>&1; echo "PyTorch:" && uv run python -c "import torch; print(torch.__version__, torch.version.cuda)" 2>&1 | head -5

@@ -2,44 +2,51 @@
   "input": {
     "workflow": {
       "10": {
-        "inputs": { "vae_name": "qwen_image_vae.safetensors" },
+        "inputs": { "vae_name": "qwen_image_2.1_vae_bf16.safetensors" },
         "class_type": "VAELoader",
-        "_meta": { "title": "Load VAE (Qwen 2.1) - Comfy converted, not diffusers raw" }
+        "_meta": { "title": "Load VAE (Qwen 2.1 bf16 - Comfy-Org)" }
       },
       "12": {
-        "inputs": { "unet_name": "qwen-image-2.1-uncensored-Q4_K_M.gguf" },
+        "inputs": { "unet_name": "qwen-image-2.1-UC-Q4_K_M.gguf" },
         "class_type": "UnetLoaderGGUF",
-        "_meta": { "title": "Load Diffusion Transformer GGUF (Qwen 2.1 7B)" }
+        "_meta": { "title": "Load DiT GGUF (Qwen 2.1 7B UC Q4_K_M - abenzerps)" }
       },
-      "61": {
-        "inputs": { "clip_name": "qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf", "type": "stable_diffusion", "device": "default" },
+      "53": {
+        "inputs": { "clip_name": "qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf", "type": "qwen_image", "device": "default" },
         "class_type": "CLIPLoaderGGUF",
-        "_meta": { "title": "Load Qwen3-VL CLIP GGUF (2.1) - fallback type for 0.3.43" }
+        "_meta": { "title": "Load Qwen3-VL CLIP GGUF (Heretic Q4_K_M - pottokao, uncensored). Alt: qwen3vl_8b_int8_convrot.safetensors via CLIPLoader type qwen_image" }
       },
-      "66": {
-        "inputs": { "shift": 3.1, "model": ["12", 0] },
-        "class_type": "ModelSamplingAuraFlow",
-        "_meta": { "title": "ModelSamplingAuraFlow shift 3.1" }
-      },
-      "6": {
-        "inputs": { "text": "A neon shop sign that reads \"QWEN IMAGE 2.1\", rainy night, reflections on wet pavement, highly detailed, 2048x2048", "clip": ["61", 0] },
-        "class_type": "CLIPTextEncode",
-        "_meta": { "title": "CLIP Text Encode (Qwen 2.1 T2I)" }
-      },
-      "7": {
-        "inputs": { "text": " ", "clip": ["61", 0] },
-        "class_type": "CLIPTextEncode",
-        "_meta": { "title": "Negative (empty for Qwen)" }
+      "55": {
+        "inputs": {
+          "clip": ["53", 0],
+          "prompt": "A neon shop sign that reads \"QWEN IMAGE 2.1\", rainy night, reflections on wet pavement, highly detailed, 1024x1024",
+          "negative_prompt": "",
+          "vae": ["10", 0],
+          "resolution": 1024
+        },
+        "class_type": "TextEncodeQwenImage21",
+        "_meta": { "title": "TextEncodeQwenImage21 (T2I - no refs, resolution 1024)" }
       },
       "27": {
-        "inputs": { "width": 2048, "height": 2048, "batch_size": 1 },
-        "class_type": "EmptySD3LatentImage",
-        "_meta": { "title": "EmptySD3LatentImage 1:1 2048" }
+        "inputs": { "width": 1024, "height": 1024, "batch_size": 1 },
+        "class_type": "EmptyLatentImage",
+        "_meta": { "title": "EmptyLatentImage 1:1 1024 (Qwen 2.1 native 2K via resolution 2048)" }
       },
       "3": {
-        "inputs": { "seed": 42, "steps": 40, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0, "model": ["66", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["27", 0] },
+        "inputs": {
+          "seed": 42,
+          "steps": 40,
+          "cfg": 1.0,
+          "sampler_name": "euler",
+          "scheduler": "simple",
+          "denoise": 1.0,
+          "model": ["12", 0],
+          "positive": ["55", 0],
+          "negative": ["55", 1],
+          "latent_image": ["27", 0]
+        },
         "class_type": "KSampler",
-        "_meta": { "title": "KSampler 40-step Qwen2.1 flow" }
+        "_meta": { "title": "KSampler 40-step Qwen 2.1 flow (cfg 1, euler/simple)" }
       },
       "8": { "inputs": { "samples": ["3", 0], "vae": ["10", 0] }, "class_type": "VAEDecode", "_meta": { "title": "VAE Decode" } },
       "9": { "inputs": { "filename_prefix": "ComfyUI", "images": ["8", 0] }, "class_type": "SaveImage", "_meta": { "title": "Save Image" } }

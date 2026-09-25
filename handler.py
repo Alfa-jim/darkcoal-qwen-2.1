@@ -1,4 +1,4 @@
-﻿import runpod
+import runpod
 from runpod.serverless.utils import rp_upload
 import json
 import urllib.request
@@ -403,11 +403,13 @@ def get_available_models():
         if chk is not None:
             models["checkpoints"] = chk
 
-        # GGUF loaders - these are the ones that show "not in []" when volume is detached
+        # GGUF loaders + native Qwen 2.1 loaders - these show "not in []" when volume is detached
         for cls, inp in [
             ("UnetLoaderGGUF", "unet_name"),
             ("UnetLoaderGGUFAdvanced", "unet_name"),
+            ("UNETLoader", "unet_name"),
             ("CLIPLoaderGGUF", "clip_name"),
+            ("CLIPLoader", "clip_name"),
             ("DualCLIPLoaderGGUF", "clip_name1"),
         ]:
             lst = _extract_list(object_info, cls, inp)

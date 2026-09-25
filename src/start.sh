@@ -73,15 +73,28 @@ if [ "${USE_NETWORK_VOLUME:-true}" = "true" ]; then
     df -h /runpod-volume 2>&1 | sed 's/^/worker-comfyui:   /' || true
   fi
 
-  # 1) Check individual expected files - Qwen 2.1 Q4 uncensored (abenzerps + pottokao Heretic)
+  # 1) Check individual expected files - Qwen 2.1 Q4 uncensored (abenzerps UC + pottokao Heretic) per https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF
+  # Canonical names: qwen-image-2.1-UC-Q4_K_M.gguf (HF) + qwen_image_2.1_vae_bf16.safetensors ; legacy aliases also checked
   MISSING=""
   for f in \
     "/runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf" \
     "/runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf" \
-    "/runpod-volume/models/diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf" \
-    "/runpod-volume/models/vae/qwen_image_vae.safetensors"
+    "/runpod-volume/models/diffusion_models/qwen-image-2.1-UC-Q4_K_M.gguf" \
+    "/runpod-volume/models/vae/qwen_image_2.1_vae_bf16.safetensors"
   do
-    [ -f "$f" ] || MISSING="$MISSING $f"
+    if [ ! -f "$f" ]; then
+      # Check legacy aliases
+      alt=""
+      case "$f" in
+        *qwen-image-2.1-UC-Q4_K_M.gguf) alt="/runpod-volume/models/diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf" ;;
+        *qwen_image_2.1_vae_bf16.safetensors) alt="/runpod-volume/models/vae/qwen_image_vae.safetensors" ;;
+      esac
+      if [ -n "$alt" ] && [ -f "$alt" ]; then
+        echo "worker-comfyui: INFO - Found legacy alias $alt for $f (consider: ln -sf $(basename $f) $alt)" >&2
+      else
+        MISSING="$MISSING $f"
+      fi
+    fi
   done
   if [ -n "$MISSING" ]; then
     echo "worker-comfyui: FATAL - USE_NETWORK_VOLUME=true but missing on /runpod-volume:$MISSING" >&2
@@ -92,24 +105,36 @@ if [ "${USE_NETWORK_VOLUME:-true}" = "true" ]; then
     echo 'worker-comfyui:   mkdir -p /runpod-volume/models/text_encoders /runpod-volume/models/diffusion_models /runpod-volume/models/vae' >&2
     echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/qwen3vl_8b_heretic-Q4_K_M.gguf' >&2
     echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/mmproj-qwen3vl_8b_heretic-f16.gguf' >&2
-    echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q4_K_M.gguf' >&2
-    echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/vae/qwen_image_vae.safetensors https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors' >&2
+    echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/diffusion_models/qwen-image-2.1-UC-Q4_K_M.gguf https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q4_K_M.gguf' >&2
+    echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/vae/qwen_image_2.1_vae_bf16.safetensors https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors' >&2
+    echo 'worker-comfyui:   # Alt HF int8 text encoder (9GB, censored base): curl -L -C - -o /runpod-volume/models/text_encoders/qwen3vl_8b_int8_convrot.safetensors https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors' >&2
     echo "worker-comfyui: See setup_network_volume.sh --help" >&2
     echo "worker-comfyui: Continuing anyway (ComfyUI will fail to find those models) ..." >&2
   else
     echo "worker-comfyui: FAST volume check OK - Qwen 2.1 Q4 uncensored GGUFs present on /runpod-volume"
     ls -lh /runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf \
            /runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf \
-           /runpod-volume/models/diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf \
-           /runpod-volume/models/vae/qwen_image_vae.safetensors  2>&1 | sed 's/^/worker-comfyui:   /'
+           /runpod-volume/models/diffusion_models/qwen-image-2.1-UC-Q4_K_M.gguf \
+           /runpod-volume/models/vae/qwen_image_2.1_vae_bf16.safetensors 2>&1 | sed 's/^/worker-comfyui:   /' || \
+    ls -lh /runpod-volume/models/diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf /runpod-volume/models/vae/qwen_image_vae.safetensors 2>&1 | sed 's/^/worker-comfyui:   /'
   fi
-  # 1b) nodes_qwen patch check - only for Rapid-AIO (qwen-image-edit 1.x); qwen-2.1 uses native comfy/text_encoders/qwen_image21
-  if grep -q "TextEncodeQwenImageEditPlus" /comfyui/comfy_extras/nodes_qwen.py 2>/dev/null; then
-    echo "worker-comfyui: nodes_qwen.py check OK - TextEncodeQwenImageEditPlus present (Phr00t v2 patch)"
-  elif [ -f /comfyui/comfy/text_encoders/qwen_image21.py ]; then
-    echo "worker-comfyui: qwen_image21 native nodes present - Phr00t check SKIPPED (qwen-2.1 OK)"
+  # Triton JIT sanity: must have gcc and triton.language importable, else CLIPTextEncode/TextEncodeQwenImage21 will fail with "Failed to find C compiler"
+  if ! which gcc >/dev/null 2>&1; then
+    echo "worker-comfyui: FATAL - gcc not found on PATH (CC=$CC) - Triton JIT will fail: Failed to find C compiler" >&2
   else
-    echo "worker-comfyui: WARNING - /comfyui/comfy_extras/nodes_qwen.py missing TextEncodeQwenImageEditPlus (and no qwen_image21) - check build" >&2
+    echo "worker-comfyui: Triton check: gcc $(gcc --version | head -1) CC=$CC"
+    python3 -c "import triton; print('triton', triton.__version__)" 2>&1 | sed 's/^/worker-comfyui:   /' || echo "worker-comfyui: WARNING - triton not importable" >&2
+    python3 -c "import triton.language as tl; print('triton.language OK')" 2>&1 | sed 's/^/worker-comfyui:   /' || echo "worker-comfyui: WARNING - triton.language import failed" >&2
+  fi
+  # 1b) qwen_image21 native nodes check (Qwen 2.1 unified - TextEncodeQwenImage21 + QwenImage21Cache)
+  if [ -f /comfyui/comfy/text_encoders/qwen_image21.py ]; then
+    echo "worker-comfyui: qwen_image21 native nodes present - OK (TextEncodeQwenImage21, QwenImage21Cache)"
+    grep -l "TextEncodeQwenImage21" /comfyui/comfy_extras/nodes_qwen.py /comfyui/comfy/text_encoders/qwen_image21.py 2>&1 | sed 's/^/worker-comfyui:   /' || true
+  else
+    echo "worker-comfyui: WARNING - /comfyui/comfy/text_encoders/qwen_image21.py missing - check build (needs ComfyUI >=0.3.44)" >&2
+  fi
+  if [ -f /comfyui/comfy_extras/nodes_qwen.py ] && grep -q "TextEncodeQwenImageEditPlus" /comfyui/comfy_extras/nodes_qwen.py 2>/dev/null; then
+    echo "worker-comfyui: INFO - TextEncodeQwenImageEditPlus present (Rapid-AIO legacy, not used for 2.1 but OK)" | sed 's/^/worker-comfyui:   /'
   fi
 
   # 2) Verify extra_model_paths.yaml is baked where ComfyUI expects it
@@ -127,9 +152,14 @@ if [ "${USE_NETWORK_VOLUME:-true}" = "true" ]; then
   fi
   if [ ! -d /comfyui/custom_nodes/ComfyUI-GGUF ]; then
     echo "worker-comfyui: WARNING - /comfyui/custom_nodes/ComfyUI-GGUF missing (UnetLoaderGGUF/CLIPLoaderGGUF won't exist, lists will be empty)." >&2
-    echo "worker-comfyui: Check Dockerfile GGUF install step." >&2
+    echo "worker-comfyui: Check Dockerfile GGUF install step (leejet/ComfyUI-GGUF per HF docs)." >&2
   else
-    echo "worker-comfyui: ComfyUI-GGUF nodes present at /comfyui/custom_nodes/ComfyUI-GGUF"
+    echo "worker-comfyui: ComfyUI-GGUF nodes present at /comfyui/custom_nodes/ComfyUI-GGUF ($(ls /comfyui/custom_nodes/ComfyUI-GGUF/*.py 2>&1 | head -1))"
+    if grep -q "qwen_image21" /comfyui/custom_nodes/ComfyUI-GGUF/*.py 2>/dev/null; then
+      echo "worker-comfyui: ComfyUI-GGUF qwen_image21 support OK (leejet)"
+    else
+      echo "worker-comfyui: WARNING - ComfyUI-GGUF may lack qwen_image21 (needs leejet fork)" >&2
+    fi
   fi
 fi
 
