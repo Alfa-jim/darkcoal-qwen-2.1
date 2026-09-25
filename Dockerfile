@@ -5,8 +5,9 @@ ARG BASE_IMAGE=nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
 # Stage 1: Base image with common dependencies
 FROM ${BASE_IMAGE} AS base
 
-# Qwen 2.1 requires ComfyUI >=0.3.44 (QWEN_IMAGE + QwenImage21 nodes) + diffusers>=0.37 + transformers>=5.17
-ARG COMFYUI_VERSION=0.3.48
+# Qwen 2.1 requires ComfyUI >=0.37.0 (qwen_image21 + TextEncodeQwenImage21/QwenImage21Cache) + diffusers>=0.37 + transformers>=5.17
+# 0.3.48 does NOT contain qwen_image21.py (verified via api.github.com/repos/comfyanonymous/ComfyUI/contents/comfy/text_encoders?ref=v0.3.48)
+ARG COMFYUI_VERSION=0.37.2
 ARG CUDA_VERSION_FOR_COMFY=12.6
 ARG ENABLE_PYTORCH_UPGRADE=true
 ARG PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu126
