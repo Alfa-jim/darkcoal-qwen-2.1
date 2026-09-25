@@ -113,12 +113,14 @@ RUN uv pip install "gguf>=0.13.0" sentencepiece protobuf && \
 # Qwen-Image 2.1 GGUF arch patch: upstream ComfyUI-GGUF 0.3.x still only lists "qwen_image"
 # but abenzerps/pottokao GGUFs are stamped "qwen_image21" -> loader throws
 # "Unexpected architecture type in GGUF file: 'qwen_image21'". Patch IMG_ARCH_LIST to allow both.
-RUN python3 -c "import pathlib; p=pathlib.Path('/comfyui/custom_nodes/ComfyUI-GGUF/loader.py'); t=p.read_text(); \
-if 'qwen_image21' not in t: \
-    t=t.replace('\"qwen_image\"', '\"qwen_image\", \"qwen_image21\"', 1); p.write_text(t); print('patched IMG_ARCH_LIST'); \
-else: print('already patched'); \
-print([l for l in p.read_text().splitlines() if 'IMG_ARCH' in l][0])" && \
-    grep -q "qwen_image21" /comfyui/custom_nodes/ComfyUI-GGUF/loader.py && echo "GGUF qwen_image21 patch OK" || (echo "FATAL: GGUF qwen_image21 patch failed" && grep IMG_ARCH /comfyui/custom_nodes/ComfyUI-GGUF/loader.py && exit 1)
+RUN if grep -q "qwen_image21" /comfyui/custom_nodes/ComfyUI-GGUF/loader.py; then \
+      echo "GGUF qwen_image21 already patched"; grep IMG_ARCH /comfyui/custom_nodes/ComfyUI-GGUF/loader.py; \
+    else \
+      echo "Patching ComfyUI-GGUF loader.py for qwen_image21..."; grep IMG_ARCH /comfyui/custom_nodes/ComfyUI-GGUF/loader.py; \
+      sed -i 's/"qwen_image"/"qwen_image", "qwen_image21"/' /comfyui/custom_nodes/ComfyUI-GGUF/loader.py && \
+      echo "Patched:" && grep IMG_ARCH /comfyui/custom_nodes/ComfyUI-GGUF/loader.py; \
+    fi && \
+    grep -q "qwen_image21" /comfyui/custom_nodes/ComfyUI-GGUF/loader.py && echo "GGUF qwen_image21 patch OK" || (echo "FATAL: GGUF qwen_image21 patch failed" && grep IMG_ARCH /comfyui/custom_nodes/ComfyUI-GGUF/loader.py; exit 1)
 
 # Phr00t Rapid-AIO fixed Qwen node - replaces ComfyUI's broken TextEncodeQwenImageEdit scaling/crop + single-image limit
 # This adds TextEncodeQwenImageEditPlus (up to 4 images, latent-aware sizing). Required for Rapid.
