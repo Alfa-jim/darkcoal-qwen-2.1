@@ -42,8 +42,15 @@ RUN (apt-get update || (sleep 5 && apt-get update) || (sleep 10 && apt-get updat
     && ln -sf /usr/bin/python3.12 /usr/bin/python \
     && ln -sf /usr/bin/pip3 /usr/bin/pip
 
-# Clean up to reduce image size
-RUN apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/*
+# Triton JIT needs a C compiler at RUNTIME (Qwen 2.1 CLIPTextEncode -> triton.language).
+# build-essential is not enough unless CC/CXX are set and triton can find them on PATH.
+ENV CC=gcc
+ENV CXX=g++
+ENV TRITON_CACHE_DIR=/tmp/triton_cache
+
+# Clean up to reduce image size (keep gcc/g++ for runtime JIT)
+RUN apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
+    which gcc && gcc --version | head -1 && which g++ && g++ --version | head -1 && echo "C compiler OK (CC=$CC)"
 
 # Install uv (latest) using official installer and create isolated venv
 RUN wget -qO- https://astral.sh/uv/install.sh | sh \
@@ -102,7 +109,9 @@ RUN uv pip install torch torchvision torchaudio --index-url https://download.pyt
 RUN uv pip install -r /comfyui/requirements.txt
 RUN for r in /comfyui/custom_nodes/*/requirements.txt; do [ -f "$r" ] && uv pip install -r "$r" || true; done
 # Re-pin torch to cu126 after requirements.txt (which pulls cpu torch), then upgrade transformers/diffusers for Qwen 2.1
-RUN uv pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126 && uv pip install --upgrade "transformers>=5.17,<6" "diffusers>=0.37.0" accelerate safetensors "huggingface-hub>=0.34"
+# Triton is required at runtime for Qwen 2.1 (comfy/text_encoders/qwen_image21 -> triton.language). Torch bundles triton, but verify.
+RUN uv pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126 && uv pip install --upgrade "transformers>=5.17,<6" "diffusers>=0.37.0" accelerate safetensors "huggingface-hub>=0.34" && \
+    uv pip install --upgrade triton && python -c "import triton; print('triton', triton.__version__)" && python -c "import triton.language as tl; print('triton.language OK')"
 
 # ComfyUI-GGUF custom nodes for UnetLoaderGGUF / CLIPLoaderGGUF (qwen-image-edit GGUF)
 # Install order matters: gguf pip pkg first so node import doesn't fail on cold import.
