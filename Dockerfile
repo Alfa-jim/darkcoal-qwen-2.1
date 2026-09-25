@@ -101,7 +101,7 @@ RUN uv pip install "gguf>=0.13.0" sentencepiece protobuf && \
      (git clone https://github.com/city96/ComfyUI-GGUF /comfyui/custom_nodes/ComfyUI-GGUF && echo "Fallback city96")) && \
     uv pip install -r /comfyui/custom_nodes/ComfyUI-GGUF/requirements.txt || true && \
     ls -l /comfyui/custom_nodes/ComfyUI-GGUF/ && uv pip show gguf | head -5 && \
-    python -c "import folder_paths; print('gguf loader check done')"
+    PYTHONPATH=/comfyui python -c "import folder_paths; print('gguf loader check done')"
 
 # Verify qwen_image21 arch is handled by GGUF loader (leejet should already support it; city96 needs patch)
 RUN if grep -q "qwen_image21" /comfyui/custom_nodes/ComfyUI-GGUF/*.py 2>/dev/null; then \
