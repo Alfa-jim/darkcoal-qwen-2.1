@@ -66,6 +66,14 @@ RUN if [ -n "${CUDA_VERSION_FOR_COMFY}" ]; then \
       /usr/bin/yes | comfy --workspace /comfyui install --version "${COMFYUI_VERSION}" --nvidia; \
     fi
 
+# ComfyUI 0.3.48 may predate qwen_image21 - ensure qwen_image21 support (Qwen 2.1 DiT + Qwen3-VL-8B)
+# comfy-cli installs from release archive (no .git), so git update may not apply - warn but don't fail build.
+RUN if [ ! -f /comfyui/comfy/text_encoders/qwen_image21.py ]; then \
+      echo "ComfyUI missing qwen_image21 - attempting to update (best effort)" && \
+      (cd /comfyui && git fetch origin --depth=1 2>&1 | head -5 && git checkout origin/master 2>&1 | head -20 && uv pip install -r requirements.txt 2>&1 | tail -5 && ls -l comfy/text_encoders/qwen_image*.py) || \
+      echo "WARN: ComfyUI qwen_image21 still missing - build will continue, but DiT load may fail. Bump COMFYUI_VERSION to newer release." && ls -l /comfyui/comfy/text_encoders/ 2>&1 | head -20; \
+    else echo "ComfyUI qwen_image21 already present:" && ls -l /comfyui/comfy/text_encoders/qwen_image*.py; fi
+
 # Upgrade PyTorch if needed (for newer CUDA versions)
 RUN if [ "$ENABLE_PYTORCH_UPGRADE" = "true" ]; then \
       uv pip install --force-reinstall torch torchvision torchaudio --index-url ${PYTORCH_INDEX_URL}; \
@@ -101,6 +109,16 @@ RUN uv pip install --upgrade torch torchvision torchaudio --index-url https://do
 RUN uv pip install "gguf>=0.13.0" sentencepiece protobuf && \
     comfy-node-install ComfyUI-GGUF || (git clone https://github.com/city96/ComfyUI-GGUF /comfyui/custom_nodes/ComfyUI-GGUF && uv pip install -r /comfyui/custom_nodes/ComfyUI-GGUF/requirements.txt || true) && \
     ls -l /comfyui/custom_nodes/ComfyUI-GGUF/nodes.py && uv pip show gguf | head -5
+
+# Qwen-Image 2.1 GGUF arch patch: upstream ComfyUI-GGUF 0.3.x still only lists "qwen_image"
+# but abenzerps/pottokao GGUFs are stamped "qwen_image21" -> loader throws
+# "Unexpected architecture type in GGUF file: 'qwen_image21'". Patch IMG_ARCH_LIST to allow both.
+RUN python3 -c "import pathlib; p=pathlib.Path('/comfyui/custom_nodes/ComfyUI-GGUF/loader.py'); t=p.read_text(); \
+if 'qwen_image21' not in t: \
+    t=t.replace('\"qwen_image\"', '\"qwen_image\", \"qwen_image21\"', 1); p.write_text(t); print('patched IMG_ARCH_LIST'); \
+else: print('already patched'); \
+print([l for l in p.read_text().splitlines() if 'IMG_ARCH' in l][0])" && \
+    grep -q "qwen_image21" /comfyui/custom_nodes/ComfyUI-GGUF/loader.py && echo "GGUF qwen_image21 patch OK" || (echo "FATAL: GGUF qwen_image21 patch failed" && grep IMG_ARCH /comfyui/custom_nodes/ComfyUI-GGUF/loader.py && exit 1)
 
 # Phr00t Rapid-AIO fixed Qwen node - replaces ComfyUI's broken TextEncodeQwenImageEdit scaling/crop + single-image limit
 # This adds TextEncodeQwenImageEditPlus (up to 4 images, latent-aware sizing). Required for Rapid.

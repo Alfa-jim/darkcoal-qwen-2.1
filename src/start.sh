@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 
 # Start SSH server if PUBLIC_KEY is set (enables remote access and dev-sync.sh)
 if [ -n "$PUBLIC_KEY" ]; then
@@ -73,39 +73,43 @@ if [ "${USE_NETWORK_VOLUME:-true}" = "true" ]; then
     df -h /runpod-volume 2>&1 | sed 's/^/worker-comfyui:   /' || true
   fi
 
-  # 1) Check individual expected files - PHIL Rapid-AIO (v53) + abliterated
+  # 1) Check individual expected files - Qwen 2.1 Q4 uncensored (abenzerps + pottokao Heretic)
   MISSING=""
   for f in \
-    "/runpod-volume/models/text_encoders/Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf" \
-    "/runpod-volume/models/text_encoders/Qwen2.5-VL-7B-Instruct-abliterated.mmproj-f16.gguf" \
-    "/runpod-volume/models/diffusion_models/qwen-rapid-nsfw-v5.3-Q6_K.gguf" \
+    "/runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf" \
+    "/runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf" \
+    "/runpod-volume/models/diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf" \
     "/runpod-volume/models/vae/qwen_image_vae.safetensors"
   do
     [ -f "$f" ] || MISSING="$MISSING $f"
   done
   if [ -n "$MISSING" ]; then
     echo "worker-comfyui: FATAL - USE_NETWORK_VOLUME=true but missing on /runpod-volume:$MISSING" >&2
-    echo "worker-comfyui: Attach the network volume with the PHIL Rapid-AIO GGUFs and retry." >&2
+    echo "worker-comfyui: Attach network volume qwen-2.1-models and populate via setup_network_volume.sh" >&2
     echo "worker-comfyui: The volume was set up with this exact layout - re-run this if Pod went cold:" >&2
-    echo 'worker-comfyui:   mkdir -p /runpod-volume/models/text_encoders /runpod-volume/models/diffusion_models /runpod-volume/models/vae /runpod-volume/models/loras' >&2
-    echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/text_encoders/Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf https://huggingface.co/Phil2Sat/Qwen-Image-Edit-Rapid-AIO-GGUF/resolve/main/Qwen2.5-VL-7B-Instruct-abliterated/Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf' >&2
-    echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/text_encoders/Qwen2.5-VL-7B-Instruct-abliterated.mmproj-f16.gguf https://huggingface.co/Phil2Sat/Qwen-Image-Edit-Rapid-AIO-GGUF/resolve/main/Qwen2.5-VL-7B-Instruct-abliterated/Qwen2.5-VL-7B-Instruct-abliterated.mmproj-f16.gguf' >&2
-    echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/diffusion_models/qwen-rapid-nsfw-v5.3-Q6_K.gguf https://huggingface.co/Phil2Sat/Qwen-Image-Edit-Rapid-AIO-GGUF/resolve/main/v53/qwen-rapid-nsfw-v5.3-Q6_K.gguf' >&2
+    echo 'worker-comfyui:   chmod +x setup_network_volume.sh && ./setup_network_volume.sh' >&2
+    echo 'worker-comfyui:   # or manually:' >&2
+    echo 'worker-comfyui:   mkdir -p /runpod-volume/models/text_encoders /runpod-volume/models/diffusion_models /runpod-volume/models/vae' >&2
+    echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/qwen3vl_8b_heretic-Q4_K_M.gguf' >&2
+    echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/mmproj-qwen3vl_8b_heretic-f16.gguf' >&2
+    echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q4_K_M.gguf' >&2
     echo 'worker-comfyui:   curl -L -C - -o /runpod-volume/models/vae/qwen_image_vae.safetensors https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors' >&2
-    echo "worker-comfyui: See PLAN.md -3 or docs/network-volumes.md" >&2
+    echo "worker-comfyui: See setup_network_volume.sh --help" >&2
     echo "worker-comfyui: Continuing anyway (ComfyUI will fail to find those models) ..." >&2
   else
-    echo "worker-comfyui: FAST volume check OK - PHIL Rapid-AIO GGUFs present on /runpod-volume"
-    ls -lh /runpod-volume/models/text_encoders/Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf \
-           /runpod-volume/models/text_encoders/Qwen2.5-VL-7B-Instruct-abliterated.mmproj-f16.gguf \
-           /runpod-volume/models/diffusion_models/qwen-rapid-nsfw-v5.3-Q6_K.gguf \
+    echo "worker-comfyui: FAST volume check OK - Qwen 2.1 Q4 uncensored GGUFs present on /runpod-volume"
+    ls -lh /runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-Q4_K_M.gguf \
+           /runpod-volume/models/text_encoders/qwen-image-2.1-text-encoder-uncensored-mmproj-f16.gguf \
+           /runpod-volume/models/diffusion_models/qwen-image-2.1-uncensored-Q4_K_M.gguf \
            /runpod-volume/models/vae/qwen_image_vae.safetensors  2>&1 | sed 's/^/worker-comfyui:   /'
   fi
-  # 1b) nodes_qwen patch check
+  # 1b) nodes_qwen patch check - only for Rapid-AIO (qwen-image-edit 1.x); qwen-2.1 uses native comfy/text_encoders/qwen_image21
   if grep -q "TextEncodeQwenImageEditPlus" /comfyui/comfy_extras/nodes_qwen.py 2>/dev/null; then
     echo "worker-comfyui: nodes_qwen.py check OK - TextEncodeQwenImageEditPlus present (Phr00t v2 patch)"
+  elif [ -f /comfyui/comfy/text_encoders/qwen_image21.py ]; then
+    echo "worker-comfyui: qwen_image21 native nodes present - Phr00t check SKIPPED (qwen-2.1 OK)"
   else
-    echo "worker-comfyui: FATAL - /comfyui/comfy_extras/nodes_qwen.py missing TextEncodeQwenImageEditPlus (patch not applied, build stale)" >&2
+    echo "worker-comfyui: WARNING - /comfyui/comfy_extras/nodes_qwen.py missing TextEncodeQwenImageEditPlus (and no qwen_image21) - check build" >&2
   fi
 
   # 2) Verify extra_model_paths.yaml is baked where ComfyUI expects it
